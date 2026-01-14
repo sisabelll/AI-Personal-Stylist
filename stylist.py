@@ -98,6 +98,37 @@ class StyleStylist:
             
         return result
 
+    def consult(self, current_outfit_context: dict, user_question: str) -> str:
+        """
+        Pure conversational mode. Answers the user's doubts using the current outfit as context.
+        """
+
+        system_prompt = f"""
+        You are a collaborative Personal Stylist.
+        The user has a question or comment about the current outfit recommendation.
+        
+        CONTEXT (The current outfit):
+        {json.dumps(current_outfit_context, indent=2)}
+        
+        YOUR GOAL:
+        1. Answer the specific question honestly (e.g., "Is this too fancy?").
+        2. Explain your styling logic if needed.
+        3. End with a helpful "Next Step" question (e.g., "Would you prefer to swap it for X?").
+        
+        Keep it conversational, warm, and concise. Do NOT generate JSON. Just text.
+        """
+        
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_question}
+        ]
+        
+        return self.client.call_api(
+            model='gpt-4o-mini',
+            messages=messages,
+            temperature=0.7 
+        )
+    
     def merge_conversation_state(self, current_state, new_refinement_delta):
         """
         Merges new refinements into the existing state using Smart Update.

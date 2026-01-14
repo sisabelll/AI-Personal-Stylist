@@ -1,10 +1,8 @@
 import json
-import re
-import ast
 from typing import Dict, List, Union
 
 from client import OpenAIClient
-from schemas import StyleInterpretation
+from schemas import StyleInterpretation, UserIntent
 
 class StyleConstraintBuilder:
     def __init__(self, user_profile: Union[Dict, List[Dict]], style_rules: dict):
@@ -90,3 +88,55 @@ class ContextInterpreter:
         result = self.client.call_api(model='gpt-4o-mini', messages=messages, temperature=0.1, response_model=StyleInterpretation)        
         self._cache[key] = result
         return result
+
+    def classify_intent(self, user_text: str) -> str:
+        
+        system_prompt = """
+        You are a Semantic Intent Classifier.
+        
+        YOUR JOB:
+        Analyze the user's input grammar to determine the immediate next step.
+        
+        THE RULES:
+        1. 'ask_question': 
+           - Input starts with a Verb/Auxiliary (Is, Does, Do, Would, Should, Could, Why).
+           - Input ends with a question mark.
+           - User is seeking an OPINION, JUDGMENT, or FACT.
+           - Example: "Is tweed too much?", "Would boots look good?", "Why this color?"
+           
+        2. 'modify_outfit':
+           - Input is an Imperative (Change, Swap, Add, Remove).
+           - Input is a Conditional Proposal (What if we..., How about...).
+           - Input is a Negative Statement (I don't like x, It's too heavy).
+           
+        3. 'finalize_outfit': 
+           - User accepts the current state (Perfect, Great, Thanks).
+
+        TRICKY EXAMPLES (Study These):
+        - User: "Is tweed too much?" 
+          Reasoning: Starts with 'Is'. Asks for judgment. 
+          Action: ask_question
+          
+        - User: "Tweed is too much." 
+          Reasoning: Statement of fact/preference. Implies change needed.
+          Action: modify_outfit
+          
+        - User: "What if I wear boots?" 
+          Reasoning: 'What if' proposes a new state. 
+          Action: modify_outfit
+        """
+        
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_text}
+        ]
+        
+        result = self.client.call_api(
+            model='gpt-4o-mini',
+            messages=messages,
+            temperature=0.0, # Zero temp is crucial for strict logic
+            response_model=UserIntent
+        )
+        
+        print(f"🧠 Intent Reasoning for {result['action']}: {result['reasoning']}") # Debug print to see it thinking!
+        return result['action']
