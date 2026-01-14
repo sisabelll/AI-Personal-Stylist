@@ -119,3 +119,15 @@ class UserIntent(BaseModel):
 
     reasoning: str = Field(description="Analyze the grammar. Is it a Command vs. a Question? Explain here.")
     action: UserActionType = Field(description="The primary goal of the user.")
+
+# ==========================================
+# 6. OUTFIT ITEM SCHEMA (with Search Query)
+# ==========================================
+class OutfitItem(BaseModel):
+    model_config = strict_config()
+
+    category: str = Field(description="Type of item (e.g., Top, Shoes).")
+    item_name: str = Field(description="Display name (e.g. 'Silk Camisole').")
+    search_query: str = Field(description="Specific keywords to find this EXACT vibe online. INCLUDE brands or aesthetics. (e.g. 'Reformation navy silk camisole 90s vintage style').")
+    
+    reason: str = Field(description="Why this fits the constraints.")

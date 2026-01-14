@@ -1,9 +1,9 @@
 from tavily import TavilyClient
-import os
+from core.config import Config
 
 class SearchTool:
     def __init__(self):
-        self.client = TavilyClient(api_key=os.getenv("TAVILY_API_KEY"))
+        self.client = TavilyClient(api_key=Config.TAVILY_API_KEY)
 
     def search_web(self, query: str, max_results=5):
         """

@@ -3,6 +3,7 @@ import time
 from typing import List, Dict, Optional, Type, Any, Union
 from openai import OpenAI, RateLimitError
 from pydantic import BaseModel
+from core.config import Config
 
 class OpenAIClient:
     """Thin wrapper around the OpenAI client with simple retry/backoff.
@@ -10,13 +11,8 @@ class OpenAIClient:
     If no API key is available, `client` will be None and `call_api` will raise a
     clear RuntimeError to avoid accidental requests.
     """
-    def __init__(self, api_key: Optional[str] = None):
-        api_key = api_key or os.getenv('OPENAI_API_KEY')
-        if not api_key:
-            print('Warning: OPENAI_API_KEY not set; OpenAI calls are disabled.')
-            self.client = None
-        else:
-            self.client = OpenAI(api_key=api_key)
+    def __init__(self):
+        self.client = OpenAI(api_key=Config.OPENAI_API_KEY)
 
     def call_api(self, 
         model: str, 

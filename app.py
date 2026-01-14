@@ -188,3 +188,33 @@ with st.expander("🕵️‍♀️ Developer Debug View"):
     if st.session_state.manager:
         st.write("Current Context:", st.session_state.manager.current_context)
         st.write("Anchored Items:", st.session_state.manager.conversation_state.get('anchored_items'))
+
+
+def display_outfit_recommendation(response_data):
+    # 1. RENDER TEXT IMMEDIATELY (Zero Latency)
+    st.markdown(response_data.get('reasoning', "Here is a look for you:"))
+    
+    outfit_items = response_data['outfit_options'][0]['items']
+    
+    # 2. FETCH IMAGES IN PARALLEL (Background)
+    # This runs while the user is reading the text above.
+    with st.spinner("🛍️ Scanning stores for matches..."):
+        visuals_map = st.session_state.catalog.search_products_parallel(outfit_items)
+
+    # 3. RENDER THE VISUAL GRID
+    st.divider()
+    cols = st.columns(len(outfit_items))
+    
+    for idx, item in enumerate(outfit_items):
+        with cols[idx]:
+            product = visuals_map.get(item.item_name)
+            
+            if product and product.get('image'):
+                st.image(product['image'], use_container_width=True)
+                st.caption(f"[{product['title'][:20]}...]({product['link']})")
+                st.caption(f"**{product.get('price', '')}**")
+            else:
+                # Fallback if search fails
+                st.info(f"🔎 {item.item_name}")
+            
+            st.markdown(f"**{item.category}**")

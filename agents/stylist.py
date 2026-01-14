@@ -11,10 +11,12 @@ class StyleStylist:
     def recommend(self, user_constraints: dict, situational_signals: dict, user_query: str, closet_items: Optional[List] = None) -> str:
         wear_category = user_constraints['wear_category']
         inspiration_data = situational_signals.get('external_style_inspiration', {})
+        inspo_name = inspiration_data.get('name', '')
+        inspo_vibe = inspiration_data.get('vibe', '')
         is_formal = user_constraints.get('polish_level') == 'evening' or user_constraints.get('formality_level') == 'high'
         
         system_prompt = f"""
-        You are an expert personal stylist with refined taste and professional discipline.
+        ou are an expert personal stylist with refined taste and professional discipline.
 
         # ROLE
         Your role is to recommend outfits that are appropriate to the situation, aligned with the client's constraints, and feel confident and intentional.
@@ -42,10 +44,17 @@ class StyleStylist:
         4. CONFLICT RESOLUTION: If a cultural event conflicts with Color Season, find the seasonal variation (e.g., 'Cool Berry' instead of 'Bright Red').
 
         # DYNAMIC RESEARCH
-        The user wants to channel the vibe: "{inspiration_data.get('vibe')}".
+        The user wants to channel the vibe: "{inspo_vibe}".
         - Staples: {inspiration_data.get('wardrobe_staples')}
         - Statement Pieces: {inspiration_data.get('statement_pieces')}
         - LOGIC: {'Use Statement Pieces to elevate.' if is_formal else 'Stick to Staples unless outerwear is needed.'}
+
+        # VISUALIZATION LOGIC (CRITICAL FOR CATALOG SEARCH)
+        For every item, you must generate a 'search_query' string optimized for Google Shopping.
+        1. INJECT INSPIRATION: If the user's inspiration is specific (e.g., "{inspo_name}"), use it as a keyword (e.g., "{inspo_name} style navy blazer").
+        2. BE SPECIFIC: Do not search for "White Tee". Search for "Heavyweight cotton boxy fit white t-shirt".
+        3. FABRIC & CUT: Mention "Linen", "Silk", "Bias cut", "Pleated" to ensure the image matches the vibe.
+        4. COLOR: Use specific color names ("Sage Green" instead of "Green").
 
         # RESPONSE GUIDELINES
         - Speak directly to the client in the descriptions.
