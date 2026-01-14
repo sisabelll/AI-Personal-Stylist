@@ -1,6 +1,7 @@
 import json
 from data_loader import DataLoader
 from builders import ContextInterpreter, StyleConstraintBuilder
+from schemas import UserActionType
 from stylist import StyleStylist
 from agents.style_researcher import StyleResearcherAgent
 
@@ -103,59 +104,112 @@ class ConversationManager:
         return result
 
     def refine_session(self, user_feedback_text):
-        # 1. Interpret
-        new_signals = self.interpreter.interpret(self.current_context, user_feedback_text)
+        """
+        Smartly routes the user to either 'Action' (Generate) or 'Consultation' (Chat).     
+        """
 
-        # 2. Handle removals 
-        if 'items_to_remove' in new_signals:
-            removals = new_signals['items_to_remove']
-            current_items = self.current_context.get('requested_items', [])
+        print(f"🤔 Classifying intent for: '{user_feedback_text}'...")
+        intent_action = self.interpreter.classify_intent(user_feedback_text)
+        print(f"🚦 Route Detected: {intent_action}")
+
+        # ====================================================
+        # ROUTE A: CONSULTATION (Chat / Advice)
+        # ====================================================
+        if intent_action == UserActionType.ASK_QUESTION:
+            print("💬 User is asking a question. Switching to Consult mode.")
+            current_outfit = self.conversation_state.get('current_recommendation', {})
             
-            if removals and current_items:
-                print(f"🗑️ Removing items matching: {removals}")
-                
-                cleaned_list = []
-                for item in current_items:
-                    should_remove = False
-                    for target in removals:
-                        # Fuzzy Match: "rain boots" removes "Navy Rainboots"
-                        if target.lower() in item.lower() or item.lower() in target.lower():
-                            should_remove = True
-                            break
-                    
-                    if not should_remove:
-                        cleaned_list.append(item)
-                
-                # Update Context with the cleaned list
-                self.current_context['requested_items'] = cleaned_list
-                
-                # Update State immediately so the prompt sees the change
-                self.conversation_state['anchored_items'] = cleaned_list
+            # Ask the Stylist for advice
+            advice_text = self.stylist.consult(current_outfit, user_feedback_text)
+            
+            # Save this Q&A to the chat history so it appears in the UI
+            self.conversation_state['history'].append({
+                "role": "user", 
+                "content": user_feedback_text
+            })
+            self.conversation_state['history'].append({
+                "role": "assistant", 
+                "content": advice_text
+            })
+            return advice_text
 
-        # 3. Smart Update
-        self.current_context = self._smart_update(self.current_context, new_signals)
-        
-        # Sync Context -> State
-        # If the context has requested items (boots), force them into the active session state.
-        if 'requested_items' in self.current_context:
-            raw_items = self.current_context['requested_items']
-            clean_items = self._consolidate_items(raw_items)
+        # ====================================================
+        # ROUTE B: FINALIZATION (Save & Celebrate)
+        # ====================================================
+        elif intent_action == UserActionType.FINALIZE_OUTFIT:
+            # User loves it. Save the current state.
+            # (Future: You can save this to a database here)
+            success_msg = "🎉 I'm so glad you love it! I've saved this look to your history. Have an amazing time!"
+            
+            self.conversation_state['history'].append({
+                "role": "assistant", 
+                "content": success_msg
+            })
+            return success_msg
 
-            self.current_context['requested_items'] = clean_items
-            self.conversation_state['anchored_items'] = clean_items
+        # ====================================================
+        # ROUTE C: RESET (Start Over)
+        # ====================================================
+        elif intent_action == UserActionType.RESET_SESSION:
+            return self.start_new_session(user_request_context={}, user_query="Let's start fresh.")
 
-        # 4. Determine Route
-        has_active_outfit = self.conversation_state.get('current_recommendation') is not None
-        
-        if has_active_outfit:
-            print(f"🔧 Refining existing outfit with: '{user_feedback_text}'")
-            refinement_delta = self.stylist.interpret_refinement(user_feedback_text, self.conversation_state)
-            self.conversation_state = self.stylist.merge_conversation_state(self.conversation_state, refinement_delta)
+        # ====================================================
+        # ROUTE D: MODIFICATION (The "Standard" Path)
+        # ====================================================
         else:
-            return self.start_new_session(self.current_context, user_feedback_text)
-        
-        # 5. Generate
-        return self._generate_recommendation(user_feedback_text)
+            # 1. Interpret
+            new_signals = self.interpreter.interpret(self.current_context, user_feedback_text)
+
+            # 2. Handle removals 
+            if 'items_to_remove' in new_signals:
+                removals = new_signals['items_to_remove']
+                current_items = self.current_context.get('requested_items', [])
+                
+                if removals and current_items:
+                    print(f"🗑️ Removing items matching: {removals}")
+                    
+                    cleaned_list = []
+                    for item in current_items:
+                        should_remove = False
+                        for target in removals:
+                            # Fuzzy Match: "rain boots" removes "Navy Rainboots"
+                            if target.lower() in item.lower() or item.lower() in target.lower():
+                                should_remove = True
+                                break
+                        
+                        if not should_remove:
+                            cleaned_list.append(item)
+                    
+                    # Update Context with the cleaned list
+                    self.current_context['requested_items'] = cleaned_list
+                    
+                    # Update State immediately so the prompt sees the change
+                    self.conversation_state['anchored_items'] = cleaned_list
+
+            # 3. Smart Update
+            self.current_context = self._smart_update(self.current_context, new_signals)
+            
+            # Sync Context -> State
+            # If the context has requested items (boots), force them into the active session state.
+            if 'requested_items' in self.current_context:
+                raw_items = self.current_context['requested_items']
+                clean_items = self._consolidate_items(raw_items)
+
+                self.current_context['requested_items'] = clean_items
+                self.conversation_state['anchored_items'] = clean_items
+
+            # 4. Determine Route
+            has_active_outfit = self.conversation_state.get('current_recommendation') is not None
+            
+            if has_active_outfit:
+                print(f"🔧 Refining existing outfit with: '{user_feedback_text}'")
+                refinement_delta = self.stylist.interpret_refinement(user_feedback_text, self.conversation_state)
+                self.conversation_state = self.stylist.merge_conversation_state(self.conversation_state, refinement_delta)
+            else:
+                return self.start_new_session(self.current_context, user_feedback_text)
+            
+            # 5. Generate
+            return self._generate_recommendation(user_feedback_text)
 
     def _generate_recommendation(self, user_query):
         """

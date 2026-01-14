@@ -1,5 +1,6 @@
 from pydantic import BaseModel, Field, ConfigDict
 from typing import List, Optional
+from enum import Enum
 
 # --- CONFIG HELPER ---
 # OpenAI Structured Outputs REQUIRE 'extra="forbid"' to guarantee no hallucinated keys.
@@ -101,3 +102,20 @@ class StyleResearchDoc(BaseModel):
     statement_pieces: List[str] = Field(description="Distinctive, loud, or iconic items.")
     fabric_preferences: List[str] = Field(description="Key materials.")
     color_palette: List[str] = Field(description="Dominant colors.")
+
+# ==========================================
+# 5. USER INTENT SCHEMAS
+# ==========================================
+
+class UserActionType(str, Enum):
+    MODIFY_OUTFIT = "modify_outfit"
+    ASK_QUESTION = "ask_question"
+    FINALIZE_OUTFIT = "finalize_outfit"
+    RESET_SESSION = "reset_session"
+
+class UserIntent(BaseModel):
+    """Classifies the user's latest input to determine the system's next step."""
+    model_config = strict_config()
+
+    reasoning: str = Field(description="Analyze the grammar. Is it a Command vs. a Question? Explain here.")
+    action: UserActionType = Field(description="The primary goal of the user.")
