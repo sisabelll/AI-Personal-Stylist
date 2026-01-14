@@ -1,10 +1,8 @@
 import json
 import os
-import re
-import ast
-from schemas import StyleResearchDoc
-from tools.search_tool import SearchTool
-from client import OpenAIClient 
+from core.schemas import StyleResearchDoc
+from services.search_tool import SearchTool
+from core.client import OpenAIClient 
 
 class StyleResearcherAgent:
     def __init__(self, client: OpenAIClient):

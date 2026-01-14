@@ -1,8 +1,8 @@
 import json
 from typing import Optional, List
 
-from client import OpenAIClient
-from schemas import StylistRecommendation, RefinementAnalysis
+from core.client import OpenAIClient
+from core.schemas import StylistRecommendation, RefinementAnalysis
 
 class StyleStylist:
     def __init__(self, client: OpenAIClient):

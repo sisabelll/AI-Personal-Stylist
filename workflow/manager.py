@@ -1,8 +1,8 @@
 import json
-from data_loader import DataLoader
-from builders import ContextInterpreter, StyleConstraintBuilder
-from schemas import UserActionType
-from stylist import StyleStylist
+from services.storage import DataLoader
+from agents.builder import ContextInterpreter, StyleConstraintBuilder
+from core.schemas import UserActionType
+from agents.stylist import StyleStylist
 from agents.style_researcher import StyleResearcherAgent
 
 class ConversationManager:

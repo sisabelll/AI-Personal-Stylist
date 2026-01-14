@@ -4,9 +4,9 @@ import os
 from dotenv import load_dotenv
 
 from agents.style_researcher import StyleResearcherAgent
-from manager import ConversationManager
-from client import OpenAIClient
-from data_loader import DataLoader
+from workflow.manager import ConversationManager
+from core.client import OpenAIClient
+from services.storage import DataLoader
 
 load_dotenv()
 
