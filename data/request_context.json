@@ -1,0 +1,18 @@
+{
+  "formality_level": "low | medium | high",
+  "social_tone": "relaxed | warm | polished",
+  "aesthetic_bias": "quiet_luxury | clean_chic | romantic | neutral",
+  "polish_level": "day | evening",
+  "environment_constraints": {
+    "layering": "none | light | heavy",
+    "footwear_resistance": "normal | weather_safe"
+  },
+  "requested_items": [],
+  "hard_constraints": {
+    "coverage": "low | moderate | high",
+    "excluded_colors": [],
+    "excluded_items": []
+  },
+  "cultural_norm": "understated | expressive | neutral",
+  "style_references": []
+}

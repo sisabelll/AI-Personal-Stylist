@@ -1,0 +1,315 @@
+{
+  "entities": {
+    "hailey_bieber": {
+      "vibe": "Clean Girl Aesthetic",
+      "key_items": [
+        "Oversized Leather Jacket",
+        "Loafers",
+        "Slicked Bun"
+      ],
+      "brand_affinities": [
+        "Saint Laurent",
+        "Wardrobe.NYC"
+      ]
+    },
+    "sandro": {
+      "vibe": "Dreamlike and Poetic",
+      "key_items": [
+        "azure blue chunky knits",
+        "burnt orange chunky knits",
+        "chocolate brown minimalist tailoring",
+        "beige trenchcoat",
+        "black suede car coat",
+        "mid-brown wool jackets",
+        "tan-coloured maxi-scarf coat",
+        "fawn mini-skirt with contrast white panels",
+        "statement gold buttons",
+        "prominent belts"
+      ],
+      "fabrics": [
+        "wool",
+        "suede"
+      ],
+      "colors": [
+        "azure blue",
+        "burnt orange",
+        "chocolate brown",
+        "fawn",
+        "cream",
+        "beige",
+        "black",
+        "mid-brown",
+        "tan"
+      ]
+    },
+    "bae suzy": {
+      "vibe": "Effortlessly Styled",
+      "key_items": [
+        "tweed dress",
+        "striped pajama set",
+        "silver earrings",
+        "red scarf"
+      ],
+      "fabrics": [
+        "tweed"
+      ],
+      "colors": [
+        "black",
+        "white"
+      ]
+    },
+    "atelier nain korea": {
+      "vibe": "Contemporary Korean Streetwear",
+      "key_items": [
+        "Wool Blended Hairy Crop Jacket",
+        "Warm High Waist Curved Denim Pants",
+        "Leopard Maxi Knot Bag",
+        "Chunky Sneakers",
+        "Platform Shoes",
+        "Sheer Tops",
+        "Flowing Skirts"
+      ],
+      "fabrics": [
+        "Sheer",
+        "Lightweight Fabrics",
+        "Wool Blended"
+      ],
+      "colors": [
+        "Leopard Print"
+      ]
+    },
+    "apc": {
+      "vibe": "Effortless Cool with American-in-Paris Sensibility",
+      "key_items": [
+        "varsity jacket",
+        "crewneck tees",
+        "sweatshirts",
+        "denim jeans",
+        "miniskirt",
+        "chore jacket",
+        "striped rugby shirts",
+        "Oxford-style shirting",
+        "Tote Bag",
+        "penny loafer"
+      ],
+      "fabrics": [
+        "fine wool",
+        "cowhide",
+        "denim",
+        "brown leather"
+      ],
+      "colors": [
+        "brown",
+        "dark indigo"
+      ]
+    },
+    "dior": {
+      "vibe": "Fantasy & Artistry",
+      "key_items": [
+        "Punk mohawk headpieces",
+        "Bamboo cage skirts",
+        "Featherwork",
+        "Tudor doublets",
+        "Elizabethan stomachers",
+        "Ruffs",
+        "Redingotes",
+        "Trompe-l\u2019oeil riding boots",
+        "Silvery embroidered column gown",
+        "Flyaway ruff collar",
+        "Mini crini",
+        "Knee-high socks",
+        "Leather outfit",
+        "Military-inspired velvet jacket",
+        "Trenchcoats in millefleurs motifs"
+      ],
+      "fabrics": [
+        "Nylon technical fabric",
+        "Velvet",
+        "Embroidery with fringes, tassels, or pearls"
+      ],
+      "colors": [
+        "Red",
+        "Silvery"
+      ]
+    },
+    "theory fashion": {
+      "vibe": "Effortless Chic",
+      "key_items": [
+        "flowy bottoms",
+        "scoop necks",
+        "fitted blazers",
+        "statement hats",
+        "gloves",
+        "fashion jewellery"
+      ],
+      "fabrics": [
+        "sustainable fabrics"
+      ],
+      "colors": [
+        "harmonized colors",
+        "vibrant colors"
+      ]
+    },
+    "carolyn bessette-kennedy": {
+      "vibe": "Sophisticated Minimalism",
+      "wardrobe_staples": [
+        "White Shirt",
+        "Blue Jeans",
+        "Black Cashmere Sweater",
+        "Camel Wool Midi Skirt",
+        "Off-the-Shoulder LBD",
+        "Prada Loafers"
+      ],
+      "statement_pieces": [
+        "Red Belted Prada Coat",
+        "Furry Black Anne Demeulemeester Piece",
+        "Leopard Print Coat",
+        "Ruffled Yohji Skirt"
+      ],
+      "fabric_preferences": [
+        "Cashmere",
+        "Wool"
+      ],
+      "color_palette": [
+        "Black",
+        "Camel",
+        "White",
+        "Red"
+      ]
+    },
+    "all saints": {
+      "vibe": "Modern Rock-Inspired Streetwear",
+      "wardrobe_staples": [
+        "AllSaints T-shirt",
+        "Leather Jacket",
+        "Denim Jeans",
+        "Casual T-shirt"
+      ],
+      "statement_pieces": [
+        "Monet Blazer in cognac tones",
+        "Dellcot Suede Jacket in cognac tones",
+        "Coordinating Sets",
+        "Graphic Print T-shirts with signature backless or cutout details"
+      ],
+      "fabric_preferences": [
+        "Leather",
+        "Denim",
+        "Shearling",
+        "Premium Materials"
+      ],
+      "color_palette": [
+        "Cognac",
+        "Metallics",
+        "Rich tones"
+      ]
+    },
+    "theory": {
+      "vibe": "Modern Urban Chic",
+      "wardrobe_staples": [
+        "Bright Blue Button-Up Shirt",
+        "Tailored Black Pants",
+        "Bubble-Gum Pink Crewneck Sweater"
+      ],
+      "statement_pieces": [
+        "Chocolate-Brown Suede Blazer",
+        "Massimo Dutti's Suede Cropped Blazer"
+      ],
+      "fabric_preferences": [
+        "Sartorial Wool",
+        "Soft Wool",
+        "Sustainable, Bio-Fabricated Textiles"
+      ],
+      "color_palette": [
+        "Bright Blue",
+        "Robin Egg Blue",
+        "Chocolate Brown"
+      ]
+    },
+    "cos": {
+      "vibe": "Minimalist with Renaissance Inspiration",
+      "wardrobe_staples": [
+        "Slate-gray Bloomers",
+        "Funnel-neck Suede Anorak"
+      ],
+      "statement_pieces": [
+        "Puff Sleeves Dress",
+        "Tiered Skirt with Ruffled Hem"
+      ],
+      "fabric_preferences": [
+        "Satin",
+        "Silk",
+        "Lace",
+        "Gauze",
+        "Tulle"
+      ],
+      "color_palette": [
+        "White",
+        "Pastels",
+        "Aqua",
+        "Pink",
+        "Orange"
+      ]
+    },
+    "the row": {
+      "vibe": "Understated Luxury",
+      "wardrobe_staples": [
+        "Basic Tee",
+        "Pleated Workwear Style Pants",
+        "Classic Button-down Shirt",
+        "Wide-wale Cords",
+        "Nubby Brushed Cashmere Sweaters",
+        "Traditional Cotton Shirting"
+      ],
+      "statement_pieces": [
+        "Cape-like Tops",
+        "Bejewelled Necklines",
+        "Sheer Layered Maxi-skirts",
+        "Washed Shantung Silk Coat and Trouser Set",
+        "Black Jersey Dress with Neck Wrap",
+        "Sleeveless Mullet-style Tunic",
+        "Brushed Cashmere Coat with Cape Style and Satin Collar",
+        "Silk Blouse with Rounded Sleeves"
+      ],
+      "fabric_preferences": [
+        "Brushed Cotton",
+        "Cashmere/Cotton Blends",
+        "Texturized Cotton Voile",
+        "Heavy Weighted Tailored Wool",
+        "Washed Shantung Silk",
+        "Jersey",
+        "Nubby Brushed Cashmere"
+      ],
+      "color_palette": [
+        "Office Grey",
+        "Sharp White"
+      ]
+    },
+    "prada": {
+      "name": "Prada",
+      "vibe": "Eclectic Futurism",
+      "wardrobe_staples": [
+        "Pleated Skirt Suit",
+        "Knee-Length Dress with Large Buttons",
+        "Minimalist Black Dress"
+      ],
+      "statement_pieces": [
+        "Pink Shirtdress with Moldable Wires",
+        "Silver Shift Dress with Mirror Ball Effect",
+        "Cloudy Black Shift Dress with Piercing-like Rings",
+        "Fur-Trimmed Tweed Lady Jacket"
+      ],
+      "fabric_preferences": [
+        "Leather with Metal Hardware",
+        "Nylon",
+        "Tweed",
+        "Fur"
+      ],
+      "color_palette": [
+        "Black",
+        "Pink",
+        "Silver",
+        "Yellow"
+      ]
+    }
+  }
+}

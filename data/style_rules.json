@@ -1,0 +1,208 @@
+{
+  "personal_color_theory": {
+    "spring_warm_tone": {
+      "overall_type": "Warm and Bright",
+      "main_characteristic": "High Value, High Chroma, Yellow Base (Warm)",
+      "sub_types": {
+        "light_spring": {
+          "name": "Light Spring",
+          "dominant_feature": "Value (Lightness)",
+          "prefer": ["Ivory", "Pastel Yellow", "Light Peach", "Mint Green"],
+          "avoid": ["Heavy Blacks", "Dusty/Muted Tones", "Deep Navy"],
+          "styling_strategy": "Focus on **Monochromatic** (tone-on-tone) looks using light neutrals. Avoid stark contrasts.",
+          "fabric_pattern_tips": "Soft textures, delicate botanicals, small or medium-scale patterns. **Shiny gold** hardware/accessories."
+        },
+        "bright_spring": {
+          "name": "Bright Spring",
+          "dominant_feature": "Chroma (Brightness)",
+          "prefer": ["Vivid Coral", "Electric Yellow-Green", "Turquoise", "Clear Orange"],
+          "avoid": ["Earthy Browns", "Soft Pastels", "Grayish Tones"],
+          "styling_strategy": "Use **color blocking** with clear, vibrant colors. Keep the contrast high.",
+          "fabric_pattern_tips": "Crisp fabrics (cotton, silk, synthetics), geometric patterns, or abstract prints. **Polished, bright hardware.**"
+        },
+        "warm_spring": {
+          "name": "Warm Spring",
+          "dominant_feature": "Hue (Warmth)",
+          "prefer": ["Buttercup Yellow", "Tomato Red", "Golden Yellow", "Yellow-Based Greens"],
+          "avoid": ["Blue-Black", "Cool Pinks", "Icy Tones"],
+          "styling_strategy": "Build outfits around **Warm Neutrals** like Camel, then add one key Warm Pop Color.",
+          "fabric_pattern_tips": "Natural, unpolished textures. Flowing fabrics. Prints should be nature-inspired and warm-toned."
+        }
+      }
+    },
+    "summer_cool_tone": {
+      "overall_type": "Cool and Soft",
+      "main_characteristic": "Medium to High Value, Low Chroma, Blue Base (Cool)",
+      "sub_types": {
+        "light_summer": {
+          "name": "Light Summer",
+          "dominant_feature": "Value (Lightness)",
+          "prefer": ["Sky Blue", "Powder Pink", "Lavender", "Soft Gray"],
+          "avoid": ["Vivid/Electric Colors", "Deep Black", "Golden Yellows"],
+          "styling_strategy": "Utilize **Soft Contrast** (light color against slightly darker light color). Avoid stark contrasts.",
+          "fabric_pattern_tips": "Lightweight, airy fabrics (chiffon, linen blends, fine knits). Soft, watercolor-like prints. **Matte silver** hardware."
+        },
+        "soft_summer": {
+          "name": "Soft Summer",
+          "dominant_feature": "Chroma (Muted/Softness)",
+          "prefer": ["Dusty Rose", "Mauve", "Slate Blue", "Cool Taupe"],
+          "avoid": ["Clear Primary Colors", "Sharp Black and White Contrast", "Bright Orange"],
+          "styling_strategy": "Rely on **Muted Neutrals** for the main garment, using muted colors near the face.",
+          "fabric_pattern_tips": "Subdued textures, brushed cottons, subtle tweed. Blended, gentle prints (e.g., blurry abstract)."
+        },
+        "cool_summer": {
+          "name": "Cool Summer",
+          "dominant_feature": "Hue (Coolness)",
+          "prefer": ["True Blue", "Fuchsia Pink (Medium)", "Plum", "Icy Blue"],
+          "avoid": ["Yellow-Greens", "Mustard Yellow", "Warm Beige"],
+          "styling_strategy": "Use **True Cool Neutrals** (Medium Gray, Charcoal) and add medium-depth cool colors.",
+          "fabric_pattern_tips": "Smooth, quality fabrics. Elegant, medium-scale prints that are distinctly cool-toned."
+        }
+      }
+    },
+    "autumn_warm_tone": {
+      "overall_type": "Warm and Deep",
+      "main_characteristic": "Low Value, Low Chroma, Yellow Base (Warm)",
+      "sub_types": {
+        "soft_autumn": {
+          "name": "Soft Autumn",
+          "dominant_feature": "Chroma (Muted/Softness)",
+          "prefer": ["Olive Green", "Cool Khaki", "Salmon Pink", "Mocha Brown"],
+          "avoid": ["Bright White", "Neon Colors", "Icy Tones", "Strong Black"],
+          "styling_strategy": "Embrace **Analogous Colors** (adjacent on the color wheel) to create a subtle, blended look. Avoid strong contrast.",
+          "fabric_pattern_tips": "Natural, unrefined textures (wool, suede, linen). Earthy, organic prints. **Aged gold or copper** hardware."
+        },
+        "deep_autumn": {
+          "name": "Deep Autumn",
+          "dominant_feature": "Value (Depth)",
+          "prefer": ["Forest Green", "Dark Chocolate", "Deep Teal", "Burgundy"],
+          "avoid": ["Light Pastels", "Frigid Blues", "Grayish Tones (too much)"],
+          "styling_strategy": "Focus on **Deep Color Blocks**, using black as a grounding neutral.",
+          "fabric_pattern_tips": "Heavier, substantial fabrics (velvet, rich knits, leather). Large, bold, or complex patterns."
+        },
+        "warm_autumn": {
+          "name": "Warm Autumn",
+          "dominant_feature": "Hue (Warmth)",
+          "prefer": ["Terracotta", "Mustard Yellow", "Rust", "Pumpkin Orange"],
+          "avoid": ["Cool Pinks", "Light Lemon Yellow", "Ashy Grays"],
+          "styling_strategy": "The entire outfit should have a **Warm Glow**. Mix and match rich, spiced tones.",
+          "fabric_pattern_tips": "Textured and matte fabrics. Patterns should be bold, featuring only warm colors."
+        }
+      }
+    },
+    "winter_cool_tone": {
+      "overall_type": "Cool and Clear/Deep",
+      "main_characteristic": "High Contrast (Very High/Very Low Value), High Chroma, Blue Base (Cool)",
+      "sub_types": {
+        "deep_winter": {
+          "name": "Deep Winter",
+          "dominant_feature": "Value (Depth)",
+          "prefer": ["Jet Black", "True Red", "Deep Emerald Green", "Charcoal Gray"],
+          "avoid": ["Soft Beige", "Warm Peach", "Muted Pastels"],
+          "styling_strategy": "Use **High Contrast** (e.g., Black main garment with a White or True Red accent near the face).",
+          "fabric_pattern_tips": "Structured, firm fabrics. Defined stripes or strong geometric patterns. **High-shine silver** or platinum hardware."
+        },
+        "bright_winter": {
+          "name": "Bright Winter",
+          "dominant_feature": "Chroma (Clarity/Brightness)",
+          "prefer": ["Electric Blue", "Vivid Magenta", "Lemon Yellow (Cool)", "Sharp White"],
+          "avoid": ["Earthy Tones", "Dull Browns", "Overly Muted Colors"],
+          "styling_strategy": " **Vivid Color Pops** are key. Use Black/White as the base, and add one Electric Color.",
+          "fabric_pattern_tips": "Crisp, polished fabrics (patent leather, smooth silk/synthetic). High-energy, sharp, or abstract prints."
+        },
+        "cool_winter": {
+          "name": "Cool Winter",
+          "dominant_feature": "Hue (Coolness)",
+          "prefer": ["Royal Blue", "Icy Pink", "True Blue-Red", "Plum"],
+          "avoid": ["Golden Yellow", "Orange", "Rust Colors"],
+          "styling_strategy": "Keep the outfit **Cool-Toned** throughout, using deep jewel tones with cool neutrals (Icy Gray, White).",
+          "fabric_pattern_tips": "Clean, modern fabrics. Patterns should be crisp and feature high contrast in cool shades."
+        }
+      }
+    }
+  },
+  "body_style_essence_theory": {
+    "straight_type": {
+        "type_name": "Straight Type (Rectangle/Column)",
+        "main_characteristic": "Thick, well-developed musculature. Smooth skin texture. Upper body tends to look bulky. Bone structure is not prominent.",
+        "styling_principle": "Simple, Structured, Clean. Use clean H-line silhouettes to minimize upper body bulk.",
+        "silhouette_intent": "Create subtle waist definition (without constriction) and vertical openness. Avoid adding bulk to the torso.",
+        "preferred_elements": {
+        "fabric_and_texture": "Firm and substantial fabrics (Wool, thick Cotton, Leather, smooth Silk). Materials that hold their shape.",
+        "fit_and_silhouette": "Structured, tailored fit. V-Neck or U-Neck to open the chest area. Straight-leg bottoms, neat single-breasted jackets.",
+        "details_and_accessories": "Minimalist, high-quality, and clean designs. Avoid excessive decoration on the chest."
+        },
+        "avoid_elements": {
+        "fabric_and_texture": "Thick chunky knits, thin/flimsy materials that cling, overly rough textures.",
+        "fit_and_silhouette": "Overly oversized fit (looks sloppy), high-waisted styles that cut the torso short.",
+        "details_and_accessories": "Ruffles, heavy layering on the chest, or large volume details on the upper body."
+        }
+    },
+
+    "wave_type": {
+        "type_name": "Wave Type (Triangle/Pear)",
+        "main_characteristic": "Delicate and thin bone structure. Weight tends to accumulate on the lower body. Upper body looks slender and soft.",
+        "styling_principle": "Soft, Curved, Decorative. Emphasize the X-line (waist definition) and add volume/interest to the upper body.",
+        "silhouette_intent": "Highlight natural waist curvature and add upper-body volume while keeping the lower body visually balanced.",
+        "preferred_elements": {
+        "fabric_and_texture": "Soft, thin, and lightweight fabrics (Chiffon, Mohair, Angora, Soft Tweed, Soft Cotton).",
+        "fit_and_silhouette": "High Waist to define the torso. Rounded necklines (Round, Boat Neck). A-line, Tapered, or Flared silhouettes.",
+        "details_and_accessories": "Intricate, delicate details like gathers, tucks, and light decorations. Small, refined hardware."
+        },
+        "avoid_elements": {
+        "fabric_and_texture": "Stiff or heavy materials (Rigid Leather, Heavy Canvas), chunky knits, rough denim.",
+        "fit_and_silhouette": "Low-waist styles, long coats/jackets that completely hide the body line, overly sharp/boxy lines.",
+        "details_and_accessories": "Oversized, heavy accessories that overwhelm the delicate frame."
+        }
+    },
+
+    "natural_type": {
+        "type_name": "Natural Type (Inverted Triangle/Oval)",
+        "main_characteristic": "Prominent bone structure and joints (e.g., collarbones, hips). Large overall frame. Less emphasis on muscle or fat softness.",
+        "styling_principle": "Casual, Loose Fit, Lengthy. Use long, relaxed lines to work with the skeletal frame.",
+        "silhouette_intent": "Honor the natural skeletal frame through relaxed, elongated lines and intentional looseness without sharp tailoring.",
+        "preferred_elements": {
+        "fabric_and_texture": "Rough, casual, and sturdy materials (Linen, heavy Cotton, Tweed, Corduroy, Distressed Leather). Layered textures.",
+        "fit_and_silhouette": "Loose fit or Oversized silhouettes. Longline coats or full-length garments. Layered styling.",
+        "details_and_accessories": "Large, bold, or handcrafted accessories. Asymmetrical designs. Long scarves and wide belts."
+        },
+        "avoid_elements": {
+        "fabric_and_texture": "Overly soft, flimsy, or overly shiny fabrics (Satin, thin Silk).",
+        "fit_and_silhouette": "Body-hugging tight fits, short or overly tailored designs that emphasize the joints.",
+        "details_and_accessories": "Delicate small details or fussy, intricate decorations."
+        }
+    }
+  },
+  "aesthetic_style_summary": {
+    "chic": {
+      "core_vibe": "Effortless, Understated, Polished. Looks expensive without trying too hard.",
+      "color_palette_preferred": ["Minimalist and Neutral (Black, White, Cream, Navy, Gray, Beige, Camel)", "Occasional True Red pop"],
+      "styling_key_elements": ["High-quality basics, perfect fit", "Tailored blazers, trench coats", "Simple fine jewelry/hardware", "Classic loafers/sleek flats"]
+    },
+    "minimalist": {
+      "core_vibe": "Clean lines, functionality, simplicity. Focuses on form and necessary detail.",
+      "color_palette_preferred": ["Strictly Neutral (White, Black, Charcoal, Nude, Taupe)", "Monochromatic or tone-on-tone"],
+      "styling_key_elements": ["Unadorned, sculptural cuts", "High-quality, non-textured fabrics", "Utility and lack of logos"]
+    },
+    "bohemian_boho": {
+      "core_vibe": "Free-spirited, Earthy, Artistic. Embraces natural elements and global influences.",
+      "color_palette_preferred": ["Warm, Earthy Tones (Terracotta, Olive Green, Rust, Cream, Mustard Yellow, Deep Teal)", "Layering of muted colors"],
+      "styling_key_elements": ["Flowing silhouettes (Wide-leg pants, loose tunics)", "Natural textures (linen, cotton, crochet)", "Fringe, embroidery, and patchwork"]
+    },
+    "preppy": {
+      "core_vibe": "Classic, Ivy League, Sporty refinement. Polished, traditional look.",
+      "color_palette_preferred": ["Bright and Classic (Navy, White, True Red, Hunter Green, Yellow)", "Nautical stripes and tartans"],
+      "styling_key_elements": ["Tailored separates (Button-downs, knit vests)", "Cable-knit sweaters, collared shirts", "Loafers/chinos", "Structured bags"]
+    },
+    "grunge_edgy": {
+      "core_vibe": "Rebellious, Dark, Edgy. Blends anti-fashion with punk/rock influence.",
+      "color_palette_preferred": ["Dark and Moody (Black, Charcoal, Deep Red/Maroon, Forest Green)", "Paired with neon accents or stark white"],
+      "styling_key_elements": ["Layering (oversized shirt over long sleeve)", "Distressed denim, platform boots, combat boots", "Chains, dark hardware"]
+    },
+    "cottagecore": {
+      "core_vibe": "Nostalgic, Rural, Idyllic. Romanticizes the simplicity of country life and nature.",
+      "color_palette_preferred": ["Soft and Muted (Sage Green, Dusty Pink, Cream, Lavender, Baby Blue)", "Earthy, subdued pastels"],
+      "styling_key_elements": ["Soft silhouettes (Puffy sleeves, smocked detailing, tiered bottoms)", "Natural fabrics, embroidery, delicate botanical prints"]
+    }
+  }
+}

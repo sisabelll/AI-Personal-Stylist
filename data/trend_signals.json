@@ -1,0 +1,62 @@
+[
+{
+    "id": "maximalist_texture_mix",
+    "category": "texture_and_material",
+    "signal_strength": 0.85,
+    "tags": ["tactile", "visual_interest", "layering"]
+  },
+  {
+    "id": "utility_and_cargo",
+    "category": "silhouette",
+    "signal_strength": 0.9,
+    "tags": ["functional", "relaxed", "oversized_pockets"]
+  },
+  {
+    "id": "bold_silver_metallic",
+    "category": "color_and_finish",
+    "signal_strength": 0.95,
+    "tags": ["statement", "futuristic", "evening", "accessories"]
+  },
+  {
+    "id": "rosette_details",
+    "category": "detail",
+    "signal_strength": 0.75,
+    "tags": ["romantic", "3d_embellishment", "feminine"]
+  },
+  {
+    "id": "quiet_luxury_core",
+    "category": "aesthetic",
+    "signal_strength": 0.9,
+    "tags": ["minimalism", "high_quality", "unbranded", "classic"]
+  },
+  {
+    "id": "hyper_feminine_bows",
+    "category": "detail",
+    "signal_strength": 0.8,
+    "tags": ["coquette", "y2k_revival", "girly"]
+  },
+  {
+    "id": "oversized_blazers_and_coats",
+    "category": "silhouette",
+    "signal_strength": 0.88,
+    "tags": ["structured", "borrowed_from_the_boys", "power_dressing"]
+  },
+  {
+    "id": "deep_burgundy_and_red",
+    "category": "color_and_finish",
+    "signal_strength": 0.92,
+    "tags": ["key_seasonal_color", "rich", "statement"]
+  },
+  {
+    "id": "balletcore_flats",
+    "category": "key_item",
+    "signal_strength": 0.7,
+    "tags": ["footwear", "delicate", "comfortable"]
+  },
+  {
+    "id": "faux_fur_and_shearling",
+    "category": "texture_and_material",
+    "signal_strength": 0.82,
+    "tags": ["volume", "cozy", "statement_outerwear"]
+  }
+]

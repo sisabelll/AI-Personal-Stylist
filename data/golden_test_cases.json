@@ -1,0 +1,347 @@
+[
+  {
+    "name": "Friendsgiving NYC",
+    "request_context": {
+      "occasion": "friendsgiving party",
+      "weather": {
+        "temperature_c": 15,
+        "conditions": "rainy",
+        "indoor_outdoor": "mostly indoor"
+      },
+      "preferences": {
+        "vibe": "quiet luxury"
+      },
+      "constraints": {
+        "time_of_day": "evening",
+        "activity_level": "light mingling"
+      },
+      "location_context": {
+        "city": "New York",
+        "dress_norm": "stylish but understated"
+      }
+    },
+    "user_query": "I want to look polished but relaxed."
+  },
+  {
+    "name": "Rainy Date Night",
+    "request_context": {
+      "occasion": "date night",
+      "weather": {
+        "temperature_c": 12,
+        "conditions": "rainy",
+        "indoor_outdoor": "outdoor"
+      },
+      "preferences": {
+        "vibe": "effortless and attractive"
+      },
+      "constraints": {
+        "time_of_day": "evening",
+        "activity_level": "walking and dining"
+      },
+      "location_context": {
+        "city": "New York",
+        "dress_norm": "casual chic"
+      }
+    },
+    "user_query": ""
+  },
+  {
+    "name": "Brunch with Boyfriend’s Parents",
+    "request_context": {
+      "occasion": "family brunch",
+      "weather": {
+        "temperature_c": 18,
+        "conditions": "clear",
+        "indoor_outdoor": "indoor"
+      },
+      "preferences": {
+        "vibe": "polished but approachable"
+      },
+      "constraints": {
+        "time_of_day": "daytime",
+        "activity_level": "seated dining"
+      },
+      "location_context": {
+        "city": "New York",
+        "dress_norm": "neat and conservative"
+      }
+    },
+    "user_query": "I want to look nice but not try-hard. No silk blouses because I don't have any."
+  },
+  {
+    "name": "Housewarming Party",
+    "request_context": {
+      "occasion": "housewarming party",
+      "weather": {
+        "temperature_c": 16,
+        "conditions": "clear",
+        "indoor_outdoor": "indoor"
+      },
+      "preferences": {
+        "vibe": "relaxed and intentional"
+      },
+      "constraints": {
+        "time_of_day": "evening",
+        "activity_level": "standing and mingling"
+      },
+      "location_context": {
+        "city": "Brooklyn",
+        "dress_norm": "casual but styled"
+      }
+    },
+    "user_query": "Something comfortable but put-together"
+  },
+  {
+    "name": "Gallery Opening",
+    "request_context": {
+      "occasion": "gallery opening",
+      "weather": {
+        "temperature_c": 10,
+        "conditions": "dry",
+        "indoor_outdoor": "mixed"
+      },
+      "preferences": {
+        "vibe": "artsy but restrained"
+      },
+      "constraints": {
+        "time_of_day": "evening",
+        "activity_level": "standing and socializing"
+      },
+      "location_context": {
+        "city": "New York",
+        "dress_norm": "creative and fashion-aware"
+      }
+    },
+    "user_query": "I want to look interesting, not loud"
+  },
+  {
+    "name": "Museum Day",
+    "request_context": {
+      "occasion": "museum visit",
+      "weather": {
+        "temperature_c": 14,
+        "conditions": "clear",
+        "indoor_outdoor": "mostly indoor"
+      },
+      "preferences": {
+        "vibe": "casual with visual interest"
+      },
+      "constraints": {
+        "time_of_day": "daytime",
+        "activity_level": "a lot of walking"
+      },
+      "location_context": {
+        "city": "New York",
+        "dress_norm": "casual"
+      }
+    },
+    "user_query": "Comfortable but not boring"
+  },
+  {
+    "name": "Fashion Pop-Up Event",
+    "request_context": {
+      "occasion": "fashion pop-up",
+      "weather": {
+        "temperature_c": 17,
+        "conditions": "clear",
+        "indoor_outdoor": "mixed"
+      },
+      "preferences": {
+        "vibe": "current but not influencer-y"
+      },
+      "constraints": {
+        "time_of_day": "afternoon",
+        "activity_level": "standing and browsing"
+      },
+      "location_context": {
+        "city": "New York",
+        "dress_norm": "trend-aware"
+      }
+    },
+    "user_query": "I want to look current but subtle"
+  },
+  {
+    "name": "Work Holiday Party",
+    "request_context": {
+      "occasion": "work holiday party",
+      "weather": {
+        "temperature_c": 8,
+        "conditions": "clear",
+        "indoor_outdoor": "indoor"
+      },
+      "preferences": {
+        "vibe": "festive but professional"
+      },
+      "constraints": {
+        "time_of_day": "evening",
+        "activity_level": "standing and networking"
+      },
+      "location_context": {
+        "city": "New York",
+        "dress_norm": "business casual"
+      }
+    },
+    "user_query": "I don’t want to look overdressed or boring"
+  },
+  {
+    "name": "Casual Friday at Office",
+    "request_context": {
+      "occasion": "casual friday at work",
+      "weather": {
+        "temperature_c": 13,
+        "conditions": "clear",
+        "indoor_outdoor": "indoor"
+      },
+      "preferences": {
+        "vibe": "relaxed but polished"
+      },
+      "constraints": {
+        "time_of_day": "daytime",
+        "activity_level": "desk work"
+      },
+      "location_context": {
+        "city": "New York",
+        "dress_norm": "smart casual"
+      }
+    },
+    "user_query": "An elevated everyday outfit. I want to wear my new black loafers."
+  },
+  {
+    "name": "Client Dinner",
+    "request_context": {
+      "occasion": "client dinner",
+      "weather": {
+        "temperature_c": 11,
+        "conditions": "clear",
+        "indoor_outdoor": "indoor"
+      },
+      "preferences": {
+        "vibe": "confident and understated"
+      },
+      "constraints": {
+        "time_of_day": "evening",
+        "activity_level": "seated dining"
+      },
+      "location_context": {
+        "city": "New York",
+        "dress_norm": "business casual"
+      }
+    },
+    "user_query": "Professional but warm"
+  },
+  {
+    "name": "Last-Minute Dinner Reservation",
+    "request_context": {
+      "occasion": "last-minute dinner",
+      "weather": {
+        "temperature_c": 14,
+        "conditions": "clear",
+        "indoor_outdoor": "indoor"
+      },
+      "preferences": {
+        "vibe": "quick polish"
+      },
+      "constraints": {
+        "time_of_day": "evening",
+        "activity_level": "short notice"
+      },
+      "location_context": {
+        "city": "New York",
+        "dress_norm": "stylish"
+      }
+    },
+    "user_query": "I have 20 minutes — help"
+  },
+  {
+    "name": "Travel Day Outfit",
+    "request_context": {
+      "occasion": "travel day",
+      "weather": {
+        "temperature_c": 9,
+        "conditions": "variable",
+        "indoor_outdoor": "mixed"
+      },
+      "preferences": {
+        "vibe": "comfortable and intentional"
+      },
+      "constraints": {
+        "time_of_day": "morning",
+        "activity_level": "long walking and sitting"
+      },
+      "location_context": {
+        "city": "airport",
+        "dress_norm": "casual"
+      }
+    },
+    "user_query": "Comfortable but not sloppy"
+  },
+  {
+    "name": "Cold Winter Evening Walk",
+    "request_context": {
+      "occasion": "evening walk and dinner",
+      "weather": {
+        "temperature_c": 2,
+        "conditions": "cold and dry",
+        "indoor_outdoor": "mostly outdoor"
+      },
+      "preferences": {
+        "vibe": "warm but sleek"
+      },
+      "constraints": {
+        "time_of_day": "evening",
+        "activity_level": "walking"
+      },
+      "location_context": {
+        "city": "New York",
+        "dress_norm": "winter casual"
+      }
+    },
+    "user_query": "Warm without looking bulky"
+  },
+  {
+    "name": "Hot but Rainy Summer Night",
+    "request_context": {
+      "occasion": "summer night out",
+      "weather": {
+        "temperature_c": 26,
+        "conditions": "humid and rainy",
+        "indoor_outdoor": "mixed"
+      },
+      "preferences": {
+        "vibe": "effortless and composed"
+      },
+      "constraints": {
+        "time_of_day": "evening",
+        "activity_level": "walking and standing"
+      },
+      "location_context": {
+        "city": "New York",
+        "dress_norm": "summer casual"
+      }
+    },
+    "user_query": "I don’t want to look sweaty or overdressed"
+  },
+  {
+    "name": "Hot but Not Obvious",
+    "request_context": {
+      "occasion": "evening social outing",
+      "weather": {
+        "temperature_c": 20,
+        "conditions": "clear",
+        "indoor_outdoor": "indoor"
+      },
+      "preferences": {
+        "vibe": "subtle sex appeal"
+      },
+      "constraints": {
+        "time_of_day": "evening",
+        "activity_level": "socializing"
+      },
+      "location_context": {
+        "city": "New York",
+        "dress_norm": "stylish"
+      }
+    },
+    "user_query": "I want to look hot but not obvious; no low-cut tops."
+  }
+]

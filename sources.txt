@@ -1,0 +1,5 @@
+--- SOURCES ---
+style_rules.json
+- Munsell Color System: Munsell System Overview (https://munsell.com/about-munsell-color/how-to-use-the-munsell-color-system/)
+- The Concept of 12-Tone Analysis
+- Style Essence / Japanese Skeletal Diagnosis

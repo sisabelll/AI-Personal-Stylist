@@ -1,0 +1,25 @@
+{
+    "occasion": "holiday friends party",
+    "weather": {
+        "temperature_c": 5,
+        "conditions": "cold",
+        "indoor_outdoor": "mostly indoor"
+    },
+    "preferences": {
+        "shoes": "low heels",
+        "comfort_level": "medium",
+        "coverage": "doesn't matter",
+        "hard_constraints": {  
+            "colors_to_avoid":  ["bright neon"]
+        },
+        "vibe": "fashionable"
+    },
+    "constraints": {
+        "time_of_day": "evening",
+        "activity_level": "light standing and mingling"
+    },
+    "location_context": {
+        "city": "New York",
+        "dress_norm": "stylish but not overly formal"
+    }
+}

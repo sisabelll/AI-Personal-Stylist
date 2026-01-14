@@ -1,0 +1,192 @@
+[
+  {
+    "name": "Friendsgiving NYC",
+    "request_context": {
+      "occasion": "friendsgiving party",
+      "weather": {
+        "temperature_c": 15,
+        "conditions": "rainy",
+        "indoor_outdoor": "mostly indoor"
+      },
+      "preferences": {
+        "vibe": "quiet luxury"
+      },
+      "constraints": {
+        "time_of_day": "evening",
+        "activity_level": "light mingling"
+      },
+      "location_context": {
+        "city": "New York",
+        "dress_norm": "stylish but understated"
+      }
+    },
+    "situational_style_signals": {
+      "formality_level": "low",
+      "social_tone": "relaxed",
+      "aesthetic_bias": "quiet_luxury",
+      "polish_level": "evening",
+      "environment_constraints": {
+        "layering": "light",
+        "footwear_resistance": "normal"
+      },
+      "hard_constraints": {
+        "coverage": "moderate",
+        "excluded_colors": []
+      },
+      "cultural_norm": "understated"
+    },
+    "stylist_output": "For a relaxed evening with a hint of quiet luxury, consider a soft gray cashmere sweater paired with a pair of sleek, straight navy pants. The cashmere provides an understated elegance without being overly formal, while the navy pants maintain a streamlined silhouette, flattering your natural lines. Add a subtle touch of sophistication with a pair of well-polished, minimalist leather loafers. Complete the look with a thin, matte silver bracelet or watch to add just the right amount of understated elegance. This outfit achieves a polished yet relaxed feel, perfect for a low-key evening.\n\nAlternatively, you might opt for a fitted cool taupe blouse with a gentle V-neck paired with a pair of tailored slate blue trousers. The blouse offers a touch of softness around the neckline, while the trousers continue the theme of clean lines and subtle structure. Pair this with classic ballet flats in a muted tone. A delicate chain necklace in a matte finish will add a touch of quiet luxury without overwhelming the look. This ensemble feels effortlessly chic and polished, ideal for an evening setting with an understated elegance."
+  },
+  {
+    "name": "Rainy Date Night",
+    "request_context": {
+      "occasion": "date night",
+      "weather": {
+        "temperature_c": 12,
+        "conditions": "rainy",
+        "indoor_outdoor": "outdoor"
+      },
+      "preferences": {
+        "vibe": "effortless and attractive"
+      },
+      "constraints": {
+        "time_of_day": "evening",
+        "activity_level": "walking and dining"
+      },
+      "location_context": {
+        "city": "New York",
+        "dress_norm": "casual chic"
+      }
+    },
+    "situational_style_signals": {
+      "formality_level": "low",
+      "social_tone": "relaxed",
+      "aesthetic_bias": "clean_chic",
+      "polish_level": "evening",
+      "environment_constraints": {
+        "layering": "light",
+        "footwear_resistance": "weather_safe"
+      },
+      "hard_constraints": {
+        "coverage": "moderate",
+        "excluded_colors": []
+      },
+      "cultural_norm": "neutral"
+    },
+    "stylist_output": "For a casual yet elevated rainy evening look, let's prioritize a clean and chic ensemble that complements your mid-calf rain boots. Start with a pair of straight, dark wash jeans that offer a refined yet comfortable base, ensuring they fit well and are slightly cropped to accommodate the boots. Pair these with a tailored soft gray V-neck sweater made from a firm, substantial fabric, offering both comfort and a touch of sophistication. Add a lightweight navy trench coat for a touch of polish and practical rain protection, while maintaining effortless elegance. To complement the look, opt for simple fine jewelry, such as a pair of matte silver earrings, for a subtle accent. This outfit strikes a perfect balance between comfort and understated style, ideal for a relaxed evening.\n\nAlternatively, consider a slightly different approach with a pair of tailored, straight-cut trousers in a cool taupe hue. These will harmonize beautifully with the rain boots and offer an elegant silhouette. Pair the trousers with a slate blue silk blouse featuring a U-neckline to open up the neckline subtly. Layer with a charcoal single-breasted jacket that offers light protection and refinement without overwhelming your frame. Finish with a simple silver bracelet for a touch of polished detail. This ensemble offers a sophisticated yet relaxed look, perfectly suited for a rainy evening, while maintaining a clean and cohesive aesthetic."
+  },
+  {
+    "name": "Brunch with Boyfriend\u2019s Parents",
+    "request_context": {
+      "occasion": "family brunch",
+      "weather": {
+        "temperature_c": 18,
+        "conditions": "clear",
+        "indoor_outdoor": "indoor"
+      },
+      "preferences": {
+        "vibe": "polished but approachable"
+      },
+      "constraints": {
+        "time_of_day": "daytime",
+        "activity_level": "seated dining"
+      },
+      "location_context": {
+        "city": "New York",
+        "dress_norm": "neat and conservative"
+      }
+    },
+    "situational_style_signals": {
+      "formality_level": "low",
+      "social_tone": "polished",
+      "aesthetic_bias": "clean_chic",
+      "polish_level": "day",
+      "environment_constraints": {
+        "layering": "none",
+        "footwear_resistance": "normal"
+      },
+      "hard_constraints": {
+        "coverage": "moderate",
+        "excluded_colors": []
+      },
+      "cultural_norm": "neutral"
+    },
+    "stylist_output": "For a polished yet effortlessly chic look, start with a tailored linen blouse in soft gray or dusty rose to provide a gentle contrast that's easy on the eyes. Pair it with some straight-cut pants in a cool taupe or slate blue, which will maintain a sleek, clean line that complements your natural figure. Opt for minimalist loafers or ballet flats in charcoal or navy to keep the outfit grounded. Finish with a simple piece of fine jewelry like a matte silver bracelet, which ties in beautifully with the overall understated aesthetic. This ensemble offers a day-appropriate polish with a touch of sophistication while honoring your desire for minimal effort.\n\nAlternatively, you could choose a fitted V-neck top in a gentle powder pink or lavender, adding just a bit of soft color near the face. Combine it with neatly tailored trousers in medium gray or a cool blue, ensuring a straight silhouette that aligns with your body's natural line. A pair of classic white sneakers would keep the look casual yet refined, perfect for a day out without appearing overdone. A sleek crossbody bag in a neutral shade will complete this relaxed yet polished look, merging comfort and style seamlessly."
+  },
+  {
+    "name": "Housewarming Party",
+    "request_context": {
+      "occasion": "housewarming party",
+      "weather": {
+        "temperature_c": 16,
+        "conditions": "clear",
+        "indoor_outdoor": "indoor"
+      },
+      "preferences": {
+        "vibe": "relaxed and intentional"
+      },
+      "constraints": {
+        "time_of_day": "evening",
+        "activity_level": "standing and mingling"
+      },
+      "location_context": {
+        "city": "Brooklyn",
+        "dress_norm": "casual but styled"
+      }
+    },
+    "situational_style_signals": {
+      "formality_level": "low",
+      "social_tone": "relaxed",
+      "aesthetic_bias": "clean_chic",
+      "polish_level": "evening",
+      "environment_constraints": {
+        "layering": "none",
+        "footwear_resistance": "normal"
+      },
+      "hard_constraints": {
+        "coverage": "moderate",
+        "excluded_colors": []
+      },
+      "cultural_norm": "neutral"
+    },
+    "stylist_output": "For a comfortable yet put-together evening look that aligns with a relaxed social tone and clean chic aesthetic, consider starting with a pair of straight-leg trousers in a soft, cool taupe. This offers a gentle balance and maintains a subtle waist definition while creating clean lines. Pair these with a well-tailored, minimalist V-neck blouse in a soft gray or slate blue. This combination provides a cohesive look without adding bulk to the upper body. For footwear, opt for classic ballet flats in navy or a simple, polished loafer. The overall feel of this outfit is understated elegance, allowing you to move with ease while looking effortlessly chic.\n\nAlternatively, consider a tailored dress in a lightweight, cool-toned fabric such as a soft lavender or dusty rose. The dress should have a simple silhouette, perhaps with a U-neck to open up the neckline gracefully. To enhance the relaxed polish, a pair of nude or soft gray ballet flats would complement this look beautifully. Accessorize with simple matte silver jewelry for a touch of refinement. This outfit offers a comfortable yet chic presentation, perfect for an evening where you want to feel at ease and stylish."
+  },
+  {
+    "name": "Gallery Opening",
+    "request_context": {
+      "occasion": "gallery opening",
+      "weather": {
+        "temperature_c": 10,
+        "conditions": "dry",
+        "indoor_outdoor": "mixed"
+      },
+      "preferences": {
+        "vibe": "artsy but restrained"
+      },
+      "constraints": {
+        "time_of_day": "evening",
+        "activity_level": "standing and socializing"
+      },
+      "location_context": {
+        "city": "New York",
+        "dress_norm": "creative and fashion-aware"
+      }
+    },
+    "situational_style_signals": {
+      "formality_level": "medium",
+      "social_tone": "polished",
+      "aesthetic_bias": "clean_chic",
+      "polish_level": "evening",
+      "environment_constraints": {
+        "layering": "light",
+        "footwear_resistance": "normal"
+      },
+      "hard_constraints": {
+        "coverage": "moderate",
+        "excluded_colors": []
+      },
+      "cultural_norm": "expressive"
+    },
+    "stylist_output": "For a polished evening look that feels interesting yet restrained, consider this approach: Start with a tailored navy blazer over a soft gray silk blouse. This combination offers a clean, elegant look that balances your cool color preference with a touch of sophistication. Pair this with straight-leg trousers in a soft taupe, which adds a subtle contrast without overwhelming the overall silhouette. Footwear can be a classic pair of gray suede loafers, providing both comfort and style. Add a minimalist silver necklace and finish the look with a structured, medium-sized gray clutch. This outfit maintains a clean chic aesthetic with a sense of understated luxury.\n\nAlternatively, you could opt for a sleek, tailored sheath dress in a soft mauve or slate blue. These colors align beautifully with your color preferences, offering muted sophistication. Layer this with a lightweight, single-breasted trench coat in a soft gray or cool taupe. For footwear, choose a pair of elegant, low-heeled ballet flats in a matching tone, ensuring comfort and style. Keep accessories minimal with a set of simple silver hoop earrings and a delicate watch. This ensemble captures an effortless, polished vibe while maintaining interest through subtle yet expressive color and texture choices."
+  }
+]
