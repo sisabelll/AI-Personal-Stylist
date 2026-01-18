@@ -129,10 +129,8 @@ class StyleStylist:
             )
 
             if current_outfit and response_data.get('outfit_options'):
-                # Extract what the user wanted to swap (e.g., ['Oversized Knit Cardigan', 'Top'])
                 swap_requests = situational_signals.get('feedback', {}).get('swap_out', [])
                 
-                # Run the stabilizer
                 stabilized_items = self._stabilize_outfit(
                     new_items=response_data['outfit_options'][0]['items'],
                     old_items=current_outfit,
@@ -141,46 +139,47 @@ class StyleStylist:
                 response_data['outfit_options'][0]['items'] = stabilized_items
             
             if response_data and 'outfit_options' in response_data:
+                # A. Define Quality Filters
+                # These keywords force Google to ignore boring product shots
+                # aesthetic_boosters = "aesthetic street style editorial photography"
+                negatives = "-clipart -vector -aliexpress -ebay -amazon -walmart -costume -clipart -vector -drawing -lowres -canvas"
+
                 for option in response_data['outfit_options']:
                     for item in option['items']:
                         raw_query = item.get('search_query', '')
 
+                        # B. SKIP CHECK: 
+                        # If the Stabilizer put back an old item that is already perfect, 
+                        # don't touch it. (Prevents double-tagging)
+                        if "-men" in raw_query or "-women" in raw_query or "unisex" in raw_query:
+                            continue 
+
+                        # C. CLEAN UP: Remove confusing prefixes & "My"
                         clean_query = raw_query.lower() \
                             .replace("men's", "") \
                             .replace("women's", "") \
                             .replace("mens", "") \
                             .replace("womens", "") \
                             .replace(" my ", " ") \
-                            .replace(" i ", " ") # Remove "I want" artifacts
+                            .replace(" i ", " ") \
+                            .strip()
                         
-                        clean_query = clean_query.strip()
-                        # A. SKIP CHECK: 
-                        # If the Stabilizer put back an old item that is already perfect, 
-                        # don't touch it. (Prevents "Women's Women's shirt -men -men")
-                        if "-men" in raw_query or "-women" in raw_query or "unisex" in raw_query:
-                            continue 
-
-                        # B. CLEAN UP: Remove confusing prefixes so we start fresh
-                        # (e.g. "Men's Scarf" -> "Scarf")
-                        clean_query = raw_query.replace("Men's", "").replace("Women's", "").replace("Mens", "").replace("Womens", "")
-                        clean_query = clean_query.strip()
+                        # D. CONSTRUCT THE "MAGAZINE" QUERY
+                        # Structure: [Gender] [Clean Item + Vibe] [Aesthetic] [Negatives] [Gender Block]
                         
-                        # C. APPLY SMART OPERATORS
-                        # Normalize inputs to handle "Women" or "Womenswear"
                         target_gender = wear_category.lower()
+                        base_query = f"{clean_query}"
 
                         if 'women' in target_gender:
-                            # Force "Women's" at start, BAN "Men" at end
-                            item['search_query'] = f"Women's {clean_query} -men -mens -male"
+                            item['search_query'] = f"Women's {base_query} {negatives} -men -mens -male"
                             
                         elif 'men' in target_gender and 'women' not in target_gender: 
-                            # (The 'and' prevents 'women' matching inside 'men')
-                            item['search_query'] = f"Men's {clean_query} -women -womens -female"
+                            item['search_query'] = f"Men's {base_query} {negatives} -women -womens -female"
                             
                         else: # UNISEX LOGIC
-                            item['search_query'] = f"{clean_query} unisex gender-neutral boxy-fit"
+                            item['search_query'] = f"{base_query} {negatives} unisex gender-neutral"
 
-                        print(f"🔍 Smart Query: {item['search_query']}")
+                        print(f"📷 Aesthetic Query: {item['search_query']}")
                             
             return response_data
             

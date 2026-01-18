@@ -16,26 +16,35 @@ def cached_google_image_search(query: str, api_key: str, cse_id: str) -> dict:
     url = "https://www.googleapis.com/customsearch/v1"
     params = {
         "key": api_key, "cx": cse_id, "q": query,
-        "searchType": "image", "num": 1, "safe": "active",
-        "imgSize": "large", "imgType": "photo"
+        "searchType": "image", 
+        "num": 3,
+        "safe": "active", "imgSize": "large", "imgType": "photo"
     }
 
     try:
         response = requests.get(url, params=params, timeout=5)
-        response.raise_for_status()
         data = response.json()
         
-        if "items" in data and len(data["items"]) > 0:
-            item = data["items"][0]
-            return {
-                "title": item.get("title"),
-                "image": item.get("link"),
-                "link": item.get("image", {}).get("contextLink"),
-                "source": item.get("displayLink"),
-                "price": None 
-            }
+        if "items" in data:
+            # 🟢 LOOP THROUGH CANDIDATES
+            for item in data["items"]:
+                image_url = item.get("link")
+                
+                # 🛡️ THE VALIDATION CHECK
+                if is_image_accessible(image_url):
+                    return {
+                        "title": item.get("title"),
+                        "image": image_url,
+                        "link": item.get("image", {}).get("contextLink"),
+                        "source": item.get("displayLink"),
+                        "price": None 
+                    }
+                else:
+                    print(f"🚫 blocked/broken image: {image_url}")
+                    continue # Try the next one
+            
     except Exception as e:
-        print(f"❌ Image Search Error for '{query}': {e}")
+        print(f"❌ Search Error: {e}")
         
     return None
 
@@ -116,3 +125,30 @@ class CatalogClient:
                     results[item_name] = item
 
         return results
+    
+def is_image_accessible(url: str) -> bool:
+    """
+    Checks if an image URL is alive and accessible without downloading the whole file.
+    """
+    if not url: return False
+    
+    try:
+        # We use stream=True and a tight timeout (1s) to be fast.
+        # We pretend to be a browser (User-Agent) to bypass basic anti-bot blocks.
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.114 Safari/537.36"
+        }
+        
+        # HEAD request only fetches headers (metadata), not the image body. Super fast.
+        response = requests.head(url, headers=headers, timeout=1.5)
+        
+        # 200 = OK. 
+        # We also check if the content-type is actually an image.
+        if response.status_code == 200 and 'image' in response.headers.get('Content-Type', ''):
+            return True
+            
+    except:
+        # If it times out or fails, assume it's broken.
+        return False
+        
+    return False
