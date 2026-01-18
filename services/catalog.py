@@ -1,93 +1,118 @@
-from serpapi import GoogleSearch
-from core.config import Config
-import concurrent.futures
+import requests
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import streamlit as st
+from core.config import Config
 
 # ---------------------------------------------------------
-# THE CACHED SEARCHER (Standalone Function)
+# 1. THE CACHED IMAGE SEARCHER
 # ---------------------------------------------------------
-# We keep this outside the class so Streamlit can cache it easily.
-# If the same query comes in (e.g., "Reformation Navy Top"), 
-# it returns the saved result instantly instead of calling Google.
-@st.cache_data(show_spinner=False) 
-def cached_google_shopping_search(api_key: str, query: str) -> dict:
+@st.cache_data(show_spinner=False, persist="disk")
+def cached_google_image_search(query: str, api_key: str, cse_id: str) -> dict:
     """
-    Executes the actual API call to SerpApi. 
-    Cached to prevent duplicate charges and latency.
+    Fetches the #1 most relevant VISUAL image from Google Images.
     """
-    if not api_key:
-        return None
+    if not api_key or not cse_id: return None
 
+    url = "https://www.googleapis.com/customsearch/v1"
     params = {
-        "api_key": api_key,
-        "engine": "google_shopping",
-        "q": query,
-        "google_domain": "google.com",
-        "gl": "us",  
-        "hl": "en", 
-        "num": 1     
+        "key": api_key, "cx": cse_id, "q": query,
+        "searchType": "image", "num": 1, "safe": "active",
+        "imgSize": "large", "imgType": "photo"
     }
 
     try:
-        search = GoogleSearch(params)
-        results = search.get_dict()
+        response = requests.get(url, params=params, timeout=5)
+        response.raise_for_status()
+        data = response.json()
         
-        # Extract the best match
-        if "shopping_results" in results and results["shopping_results"]:
-            item = results["shopping_results"][0]
-            
+        if "items" in data and len(data["items"]) > 0:
+            item = data["items"][0]
             return {
                 "title": item.get("title"),
-                "image": item.get("thumbnail"),
-                "price": item.get("price"),
-                "link": item.get("link"),
-                "source": item.get("source")
+                "image": item.get("link"),
+                "link": item.get("image", {}).get("contextLink"),
+                "source": item.get("displayLink"),
+                "price": None 
             }
-            
     except Exception as e:
-        print(f"❌ SerpApi Error for '{query}': {e}")
+        print(f"❌ Image Search Error for '{query}': {e}")
         
     return None
 
 
+# ---------------------------------------------------------
+# 2. THE CATALOG CLIENT
+# ---------------------------------------------------------
 class CatalogClient:
     """
-    Interface for fetching visual product data.
-    Acts as a 'Digital Catalog' to find real-world images for outfit items.
+    Fetches aesthetic imagery using Google Custom Search.
+    Prioritizes 'Vibe' over 'Product Metadata'.
     """
 
     def __init__(self):
-        self.api_key = Config.SERPAPI_API_KEY
-        if not self.api_key:
-            print("⚠️ CatalogClient: No SERPAPI_API_KEY found. Visuals disabled.")
-            return None
-
-    def search_product(self, precise_query: str) -> dict:
-        """
-        Searches for a visual match for a specific item description.
-        """
-        return cached_google_shopping_search(self.api_key, precise_query)
-    
-    def search_products_parallel(self, items: list) -> dict:
-        """
-        Fetches images for a whole list of items simultaneously.
-        """
-        results = {}
+        self.api_key = Config.GOOGLE_API_KEY
+        self.cse_id = Config.GOOGLE_CSE_ID
         
-        with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
-            future_to_item = {
-                executor.submit(self.search_image, item.search_query): item.item_name
-                for item in items
-            }
+        if not self.api_key or not self.cse_id:
+            print("⚠️ CatalogClient: Missing GOOGLE_API_KEY or GOOGLE_CSE_ID.")
+
+        # st.cache_data.clear() 
+        # print("🧹 Cache cleared!")
+
+    def find_item_image(self, precise_query: str) -> dict:
+        """Single item search."""
+        return cached_google_image_search(precise_query, self.api_key, self.cse_id)
+
+    def search_products_parallel(self, items: list) -> dict:
+        print(f"\n📢 CATALOG RECEIVED INPUT TYPE: {type(items)}")
+        print(f"📢 RAW INPUT DATA: {str(items)[:100]}...\n")
+        if isinstance(items, dict) or not isinstance(items, list):
+            print("🚨 CRITICAL ERROR: Invalid input type.")
+            return {}
+        
+        valid_items = [i for i in items if not isinstance(i, str)]
+        items = valid_items
+        
+        results = {}
+        items_to_search = []
+        
+        for item in items:
+            item_name = item.get('item_name', 'Unknown')
+            items_to_search.append(item)
+            results[item_name] = None
+
+        if not items_to_search: return results
+
+        print(f"🛍️ Correctly searching for {len(items_to_search)} items...")
+        
+        with ThreadPoolExecutor(max_workers=5) as executor:
+            future_to_item = {}
+            for item in items_to_search:
+                # Use 'search_query' if available, otherwise 'item_name'
+                query_str = item.get('search_query', item.get('item_name'))
+                
+                # Verify we are passing a string
+                if not isinstance(query_str, str): 
+                    query_str = str(query_str)
+
+                # Submit the STRING, not the DICT
+                future = executor.submit(self.find_item_image, query_str)
+                future_to_item[future] = item
             
-            # Gather results as they finish
-            for future in concurrent.futures.as_completed(future_to_item):
-                item_name = future_to_item[future]
+            for future in as_completed(future_to_item):
+                item = future_to_item[future]
+                item_name = item.get('item_name')
                 try:
-                    data = future.result()
-                    results[item_name] = data
+                    product = future.result()
+                    # Only overwrite if we found a valid product
+                    if product:
+                        results[item_name] = product
+                    else:
+                        # If search fails, keep item but WIPE the old image to be safe
+                        item['image'] = None
+                        results[item_name] = item
                 except Exception as e:
-                    print(f"❌ Error fetching {item_name}: {e}")
-                    results[item_name] = None
-                    
+                    print(f"❌ Error: {e}")
+                    results[item_name] = item
+
         return results

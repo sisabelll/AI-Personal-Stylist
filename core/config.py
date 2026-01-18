@@ -23,6 +23,10 @@ class Config:
     # --- Replicate (The Avatar Generator) ---
     REPLICATE_API_TOKEN = os.getenv("REPLICATE_API_TOKEN")
     
+    # --- Google Search APIs ---
+    GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+    GOOGLE_CSE_ID = os.getenv("GOOGLE_CSE_ID")
+    
     # --- App Settings ---
     DEBUG_MODE = os.getenv("DEBUG_MODE", "True").lower() == "true"
     
