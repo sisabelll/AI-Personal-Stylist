@@ -1,8 +1,8 @@
 import json
 from typing import Dict, List, Union
 
-from client import OpenAIClient
-from schemas import StyleInterpretation, UserIntent
+from core.client import OpenAIClient
+from core.schemas import StyleInterpretation, UserIntent
 
 class StyleConstraintBuilder:
     def __init__(self, user_profile: Union[Dict, List[Dict]], style_rules: dict):

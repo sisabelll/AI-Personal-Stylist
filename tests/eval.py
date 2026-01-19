@@ -8,8 +8,8 @@ load_dotenv()
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
-from client import OpenAIClient
-from manager import ConversationManager
+from core.client import OpenAIClient
+from workflow.manager import ConversationManager
 from fixtures import TEST_PROFILE, TEST_STYLE_RULES, TEST_REQUEST_CONTEXT
 
 def run_canary_test(manager):

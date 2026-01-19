@@ -1,9 +1,11 @@
 import json
-from data_loader import DataLoader
-from builders import ContextInterpreter, StyleConstraintBuilder
-from schemas import UserActionType
-from stylist import StyleStylist
+from services.storage import DataLoader
+from agents.interpreter import ContextInterpreter, StyleConstraintBuilder
+from core.schemas import UserActionType
+from agents.stylist import StyleStylist
 from agents.style_researcher import StyleResearcherAgent
+from agents.refiner import RefinementAgent
+from services.catalog import CatalogClient
 
 class ConversationManager:
     def __init__(self, client, user_profile, style_rules, request_context_schema):
@@ -19,6 +21,8 @@ class ConversationManager:
         self.interpreter = ContextInterpreter(client, request_context_schema)
         self.stylist = StyleStylist(client)
         self.researcher = StyleResearcherAgent(client)
+        self.refiner_agent = RefinementAgent(client)
+        self.catalog = CatalogClient()
 
         # 3. Initialize Mutable State
         self.current_context = {}  # "Brunch, casual"
@@ -32,56 +36,37 @@ class ConversationManager:
     def start_new_session(self, user_request_context, user_query, status_callback=None, use_cache=False):
         """Initializes a session by interpreting the raw request (e.g., 'Brunch')."""
         
-        # 1. DEVELOPER CACHE CHECK (Save $$)
+        # 1. DEVELOPER CACHE CHECK
         if use_cache:
             snapshot_data = self.data_loader.load_snapshot("debug_session.json")
             if snapshot_data:
                 self.current_context = snapshot_data.get("context", {})
                 self.conversation_state = snapshot_data.get("conversation_state", {})
-                
-                if status_callback: 
-                    status_callback("⚡ Loaded cached outfit from snapshot.")
-                
-                # Return the recommendation immediately
+                if status_callback: status_callback("⚡ Loaded cached outfit.")
                 return self.conversation_state.get('current_recommendation')
 
         print(f"🚀 Starting new session with request: '{user_query}'")
         
-        # 2. Interpret the User's Input
+        # 2. INTERPRET INPUT
         new_signals = self.interpreter.interpret(user_request_context, user_query)
-        
-        # 3. SMART MERGE (Replaces the "Rescue" logic)
         self.current_context = self._smart_update(self.current_context, new_signals)
 
-        # 4. GATHER STYLE REFS (Using Safe Merge)
+        # 3. RESEARCHER (Style Icons)
         profile_refs = self.user_profile.get('style_references', [])
         chat_refs = self.current_context.get('style_references', [])
-        
         all_style_refs = self._safe_merge(profile_refs, chat_refs)
         
-        # 5. Trigger Researcher
         if all_style_refs:
-            icon_name = all_style_refs[0] # TODO: Support multiple later
-            
+            icon_name = all_style_refs[0]
             current_data = self.current_context.get('external_style_inspiration', {})
             existing_name = current_data.get('name', '')
             
-            needs_research = not current_data or (existing_name and existing_name.lower() != icon_name.lower())
-
-            if needs_research:
-                if status_callback:
-                    status_callback(f"🕵️‍♀️ Detected style icon: **{icon_name}**. Deploying Researcher...")
-                
+            if not current_data or (existing_name and existing_name.lower() != icon_name.lower()):
+                if status_callback: status_callback(f"🕵️‍♀️ Researching style icon: **{icon_name}**...")
                 researched_data = self.researcher.get_profile(icon_name)
                 self.current_context['external_style_inspiration'] = researched_data
-                
-                if status_callback:
-                    status_callback(f"✅ Research complete! Found data for **{researched_data.get('name', icon_name)}**.")
-            
-            else:
-                print(f"⚡ Skipping research: We already have data for {icon_name}")
 
-        # 6. Reset Conversation State
+        # 4. RESET STATE
         self.conversation_state = {
             "current_recommendation": None,
             "refinement_signals": {}, 
@@ -89,19 +74,43 @@ class ConversationManager:
             "anchored_items": self.current_context.get('requested_items', [])
         }
         
-        if status_callback:
-            status_callback("🎨 Synthesizing outfit recommendation...")
-            
-        result = self._generate_recommendation(user_query)
+        if status_callback: status_callback("🎨 Synthesizing outfit recommendation...")
 
-        # 7. SAVE SNAPSHOT (Auto-save for next time)
+        # Note: We pass 'current_outfit=None' to force a fresh start.
+        recommendation = self.stylist.recommend(
+            constraints=self.user_profile,
+            situational_signals={
+                "external_inspiration": self.current_context.get('external_style_inspiration', {}),
+                "event_type": self.current_context.get('event_type', ''),
+                "season": self.current_context.get('season', 'General')
+            },
+            user_query=user_query,
+            current_outfit=None 
+        )
+
+        # We dig into the list to find specific items, effectively ignoring the "Reasoning" text.
+        print("🛍️ searching for initial products...")
+        if recommendation.get('outfit_options'):
+            items_to_search = recommendation['outfit_options'][0].get('items', [])
+            self.catalog.search_products_parallel(items_to_search)
+
+        # 7. SAVE & RETURN
+        self.conversation_state['current_recommendation'] = recommendation
+        
+        # Add initial message to history
+        self.conversation_state['history'].append({
+            "role": "assistant", 
+            "content": recommendation.get('reasoning', "Here is your look.")
+        })
+
+        # Auto-save Snapshot
         self.data_loader.save_snapshot(
             context=self.current_context,
             state=self.conversation_state,
             filename="debug_session.json"
         )
         
-        return result
+        return recommendation
 
     def refine_session(self, user_feedback_text):
         """
@@ -112,6 +121,12 @@ class ConversationManager:
         intent_action = self.interpreter.classify_intent(user_feedback_text)
         print(f"🚦 Route Detected: {intent_action}")
 
+        new_signals = self.interpreter.interpret(self.current_context, user_feedback_text)
+        self.current_context = self._smart_update(self.current_context, new_signals)
+
+        if 'requested_items' in self.current_context:
+            self.conversation_state['anchored_items'] = self.current_context['requested_items']
+               
         # ====================================================
         # ROUTE A: CONSULTATION (Chat / Advice)
         # ====================================================
@@ -157,59 +172,15 @@ class ConversationManager:
         # ROUTE D: MODIFICATION (The "Standard" Path)
         # ====================================================
         else:
-            # 1. Interpret
-            new_signals = self.interpreter.interpret(self.current_context, user_feedback_text)
+            self.conversation_state['history'].append({"role": "user", "content": user_feedback_text})
+            new_outfit = self.refine_look(user_feedback_text)
 
-            # 2. Handle removals 
-            if 'items_to_remove' in new_signals:
-                removals = new_signals['items_to_remove']
-                current_items = self.current_context.get('requested_items', [])
-                
-                if removals and current_items:
-                    print(f"🗑️ Removing items matching: {removals}")
-                    
-                    cleaned_list = []
-                    for item in current_items:
-                        should_remove = False
-                        for target in removals:
-                            # Fuzzy Match: "rain boots" removes "Navy Rainboots"
-                            if target.lower() in item.lower() or item.lower() in target.lower():
-                                should_remove = True
-                                break
-                        
-                        if not should_remove:
-                            cleaned_list.append(item)
-                    
-                    # Update Context with the cleaned list
-                    self.current_context['requested_items'] = cleaned_list
-                    
-                    # Update State immediately so the prompt sees the change
-                    self.conversation_state['anchored_items'] = cleaned_list
-
-            # 3. Smart Update
-            self.current_context = self._smart_update(self.current_context, new_signals)
-            
-            # Sync Context -> State
-            # If the context has requested items (boots), force them into the active session state.
-            if 'requested_items' in self.current_context:
-                raw_items = self.current_context['requested_items']
-                clean_items = self._consolidate_items(raw_items)
-
-                self.current_context['requested_items'] = clean_items
-                self.conversation_state['anchored_items'] = clean_items
-
-            # 4. Determine Route
-            has_active_outfit = self.conversation_state.get('current_recommendation') is not None
-            
-            if has_active_outfit:
-                print(f"🔧 Refining existing outfit with: '{user_feedback_text}'")
-                refinement_delta = self.stylist.interpret_refinement(user_feedback_text, self.conversation_state)
-                self.conversation_state = self.stylist.merge_conversation_state(self.conversation_state, refinement_delta)
-            else:
-                return self.start_new_session(self.current_context, user_feedback_text)
-            
-            # 5. Generate
-            return self._generate_recommendation(user_feedback_text)
+            self.conversation_state['current_recommendation'] = new_outfit
+            self.conversation_state['history'].append({
+                "role": "assistant", 
+                "content": new_outfit.get('reasoning', "Here is your updated look.")
+            })
+            return new_outfit
 
     def _generate_recommendation(self, user_query):
         """
@@ -271,10 +242,9 @@ class ConversationManager:
 
         # 5. Call the Stylist
         recommendation = self.stylist.recommend(
-            user_constraints=self.static_constraints, 
+            constraints=self.static_constraints, 
             situational_signals=active_signals, 
-            user_query=final_query_text,
-            closet_items=[] 
+            user_query=final_query_text
         )
         
         # 6. Update History
@@ -397,3 +367,47 @@ class ConversationManager:
                 unique_items.append(item)
                 
         return unique_items
+    
+    def refine_look(self, user_text: str):
+        """
+        The 'Action' function. 
+        """
+        print(f"🔄 Refine Look triggered with: '{user_text}'")
+
+        # 1. ANALYZE FEEDBACK
+        current_data = self.conversation_state.get('current_recommendation', {})
+        
+        feedback_analysis = self.refiner_agent.analyze_feedback(
+            current_outfit=current_data, 
+            user_input=user_text
+        )
+        print(f"📊 Feedback Analysis: {feedback_analysis}")
+
+        # 2. PREPARE CONTEXT (Items + Vibe)
+        current_outfit_items = []
+        if current_data and 'outfit_options' in current_data:
+            current_outfit_items = current_data['outfit_options'][0].get('items', [])
+
+        # (Assuming you stored it in self.current_context during start_new_session)
+        active_inspo = self.current_context.get('inspiration_data', {})
+
+        # 3. CALL THE STYLIST (EDIT MODE)
+        new_recommendation = self.stylist.recommend(
+            constraints=self.user_profile,       
+            situational_signals={
+                "feedback": feedback_analysis,   
+                "event_type": current_data.get('occasion', ''),
+                "external_inspiration": active_inspo 
+            },
+            user_query=user_text,
+            current_outfit=current_outfit_items
+        )
+
+        # 4. SEARCH FOR NEW PRODUCTS
+        print("🛍️ Searching for new visuals...")
+        if new_recommendation.get('outfit_options'):
+            items = new_recommendation['outfit_options'][0].get('items', [])
+            self.catalog.search_products_parallel(items)
+
+        # 5. RETURN RESULTS
+        return new_recommendation

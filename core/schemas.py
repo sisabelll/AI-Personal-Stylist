@@ -8,14 +8,11 @@ def strict_config():
     return ConfigDict(extra="forbid")
 
 # ==========================================
-# 1. INTERPRETER SCHEMAS
+# 1. INTERPRETER SCHEMAS (Input Analysis)
 # ==========================================
 
 class HardConstraints(BaseModel):
-    """
-    Specific constraints extracted from user input.
-    Replaces generic dicts to ensure strict validation.
-    """
+    """Specific constraints extracted from user input."""
     model_config = strict_config()
     
     event_type: Optional[str] = Field(default=None, description="The specific event (e.g. 'Wedding', 'Job Interview').")
@@ -25,57 +22,38 @@ class HardConstraints(BaseModel):
     time_of_day: Optional[str] = Field(default=None, description="Time context (e.g. 'Evening', 'Day').")
 
 class StyleInterpretation(BaseModel):
-    """
-    Output of the Context Interpreter Agent.
-    """
+    """Output of the Context Interpreter Agent."""
     model_config = strict_config()
 
     reasoning_steps: List[str] = Field(description="Step-by-step logic for extracting these signals.")
     requested_items: List[str] = Field(default=[], description="Items the user explicitly wants to ADD.")
     items_to_remove: List[str] = Field(default=[], description="Items the user explicitly wants to REMOVE.")
-    
-    # We use the specific class instead of 'dict' to prevent validation errors
     hard_constraints: HardConstraints = Field(default_factory=HardConstraints, description="Non-negotiable constraints.")
-    
     vibe_modifiers: List[str] = Field(default=[], description="Style adjectives (edgy, casual).")
 
 
 # ==========================================
-# 2. STYLIST SCHEMAS
+# 2. RESEARCHER SCHEMAS
 # ==========================================
 
-class OutfitItem(BaseModel):
+class StyleResearchDoc(BaseModel):
+    """Output of the Style Researcher Agent."""
     model_config = strict_config()
 
-    category: str = Field(description="Type of item (e.g., Top, Shoes).")
-    item_name: str = Field(description="Specific name of the item.")
-    reason: str = Field(description="Mention the specific Style Rule (Body Type, Color Season) that justified this choice.")
-
-class OutfitOption(BaseModel):
-    model_config = strict_config()
-
-    name: str = Field(description="Creative name for this outfit.")
-    description: str = Field(description="2-3 sentences explaining the vibe and why it fits.")
-    items: List[OutfitItem]
-
-class StylistRecommendation(BaseModel):
-    """
-    Output of the Main Stylist Agent.
-    """
-    model_config = strict_config()
-
-    reasoning_steps: List[str] = Field(description="Internal monologue balancing constraints. Concise bullet points.")
-    outfit_options: List[OutfitOption]
+    name: str = Field(description="Name of the entity.")
+    vibe: str = Field(description="Short phrase capturing the essence.")
+    wardrobe_staples: List[str] = Field(description="Everyday basics worn frequently.")
+    statement_pieces: List[str] = Field(description="Distinctive, loud, or iconic items.")
+    fabric_preferences: List[str] = Field(description="Key materials.")
+    color_palette: List[str] = Field(description="Dominant colors.")
 
 
 # ==========================================
-# 3. REFINEMENT SCHEMAS
+# 3. REFINEMENT SCHEMAS (Feedback)
 # ==========================================
 
 class RefinementAnalysis(BaseModel):
-    """
-    Output of the Refinement Interpreter (Feedback Analyzer).
-    """
+    """Output of the Refinement Interpreter."""
     model_config = strict_config()
 
     make_more: List[str] = Field(default=[], description="Attributes to enhance (e.g., 'more edgy').")
@@ -87,24 +65,7 @@ class RefinementAnalysis(BaseModel):
 
 
 # ==========================================
-# 4. RESEARCHER SCHEMAS
-# ==========================================
-
-class StyleResearchDoc(BaseModel):
-    """
-    Output of the Style Researcher Agent.
-    """
-    model_config = strict_config()
-
-    name: str = Field(description="Name of the entity.")
-    vibe: str = Field(description="Short phrase capturing the essence.")
-    wardrobe_staples: List[str] = Field(description="Everyday basics worn frequently.")
-    statement_pieces: List[str] = Field(description="Distinctive, loud, or iconic items.")
-    fabric_preferences: List[str] = Field(description="Key materials.")
-    color_palette: List[str] = Field(description="Dominant colors.")
-
-# ==========================================
-# 5. USER INTENT SCHEMAS
+# 4. USER INTENT SCHEMAS
 # ==========================================
 
 class UserActionType(str, Enum):
@@ -114,8 +75,39 @@ class UserActionType(str, Enum):
     RESET_SESSION = "reset_session"
 
 class UserIntent(BaseModel):
-    """Classifies the user's latest input to determine the system's next step."""
+    """Classifies the user's latest input."""
     model_config = strict_config()
 
     reasoning: str = Field(description="Analyze the grammar. Is it a Command vs. a Question? Explain here.")
     action: UserActionType = Field(description="The primary goal of the user.")
+
+
+# ==========================================
+# 5. STYLIST OUTPUT SCHEMAS (The Main Event)
+# ==========================================
+
+class OutfitItem(BaseModel):
+    """A single item in the outfit."""
+    model_config = strict_config()
+
+    category: str = Field(description="Type of item (e.g., Top, Shoes).")
+    item_name: str = Field(description="Display name (e.g. 'Silk Camisole').")
+    search_query: str = Field(description="Specific keywords to find this EXACT vibe online. INCLUDE brands or aesthetics. (e.g. 'Reformation navy silk camisole 90s vintage style').")
+    reason: str = Field(description="Why this specific item fits the constraints.")
+
+class OutfitOption(BaseModel):
+    """A full outfit grouping."""
+    model_config = strict_config()
+
+    name: str = Field(description="Creative name for this look (e.g. 'Rainy Day Chic').")
+    items: List[OutfitItem]
+
+class OutfitRecommendation(BaseModel):
+    """The final response from the Stylist Agent."""
+    model_config = strict_config()
+
+    id: str
+    occasion: str
+    season: str
+    reasoning: str = Field(description="EXECUTIVE SUMMARY: A 2-3 sentence pitch to the client explaining the vibe, why it works for the weather/event, and the style strategy used.")
+    outfit_options: List[OutfitOption]
