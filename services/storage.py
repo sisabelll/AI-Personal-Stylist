@@ -1,68 +1,128 @@
+import streamlit as st
 import json
 import os
-import time
-from typing import Any, Dict
+from supabase import create_client, Client
 
+class StorageService:
+    def __init__(self):
+        """
+        Initializes the Supabase client using credentials from Streamlit secrets.
+        """
+        url = os.environ.get("SUPABASE_URL")
+        key = os.environ.get("SUPABASE_KEY")
+        service_key = os.environ.get("SUPABASE_SERVICE_KEY")
 
-class DataLoader:
-    """Load JSON files used by the app."""
-    def __init__(self, base_dir: str = '.'):
-        self.base_dir = base_dir
-        self.user_profile = self._load('user_profile.json')
-        self.style_rules = self._load('style_rules.json')
-        self.trend_signals = self._load('trend_signals.json')
-        self.request_context = self._load('request_context.json')
-        self.request_context_input = self._load('request_context_input.json')
-        self.golden_test_cases = self._load('golden_test_cases.json')
-        self.conversation_state = self._load('conversation_state.json')
+        if not url or not key:
+            st.error("🚨 Missing Supabase Credentials! Please add SUPABASE_URL and SUPABASE_KEY to .streamlit/secrets.toml")
+            st.stop()
         
-        self.snapshot_dir = os.path.join(self.base_dir, 'snapshots')
-        os.makedirs(self.snapshot_dir, exist_ok=True)
+        self.supabase: Client = create_client(url, key)
+        if service_key:
+            self.db_admin: Client = create_client(url, service_key)
+        else:
+            self.db_admin = None
+            print("⚠️ Warning: No Service Key found. Database writes might fail.")
 
-    def _load(self, filename: str) -> Any:
-        path = os.path.join(self.base_dir, 'data', filename)
+    # ==========================================
+    # 👤 USER PROFILES (Replaces user_profile.json)
+    # ==========================================
+
+    def get_profile(self, user_id: str):
+        """
+        Fetches the user's profile and merges it with their style preferences.
+        Returns None if the user hasn't completed onboarding.
+        """
         try:
-            with open(path, 'r') as f:
-                return json.load(f)
-        except FileNotFoundError:
-            print(f"Warning: {filename} not found at {path}. Returning empty dict.")
-            return {}
-        except json.JSONDecodeError as e:
-            print(f"Warning: {filename} contains invalid JSON: {e}. Returning empty dict.")
-            return {}
-    
-    def save_snapshot(self, context: Dict, state: Dict, filename: str = "debug_session.json") -> bool:
-        """Saves current runtime state to the snapshots folder."""
-        data = {
-            "timestamp": time.time(),
-            "context": context,
-            "conversation_state": state
-        }
-        
-        filepath = os.path.join(self.snapshot_dir, filename)
-        
+            # 1. Get Static Stats (Height, Size, etc.)
+            response = self.supabase.table('profiles').select("*").eq('id', user_id).execute()
+            if response.data and len(response.data) > 0:
+                profile = response.data[0]
+                
+                # 2. Get Vibe/Preferences (Icons, Brands)
+                prefs = self._get_style_preferences(user_id)
+                
+                # 3. Merge them into one dictionary for the App to use
+                if prefs:
+                    profile['preferences'] = prefs
+                return profile
+            
+            return None
+        except Exception as e:
+            print(f"Error fetching profile: {e}")
+            return None
+
+    def _get_style_preferences(self, user_id: str):
+        """Internal helper to fetch style prefs."""
         try:
-            with open(filepath, 'w') as f:
-                json.dump(data, f, indent=2)
-            print(f"💾 Snapshot saved to {filepath}")
+            response = self.supabase.table('style_preferences').select("*").eq('user_id', user_id).execute()
+            return response.data[0] if response.data else None
+        except Exception:
+            return None
+
+    def save_profile(self, user_id: str, profile_data: dict, preferences_data: dict, access_token: str):
+        """Saves data using the Admin Client to bypass RLS issues."""
+        try:
+            # 🔐 SET AUTH HEADER
+            # This tells Supabase: "I am User X, here is my badge."
+            self.supabase.postgrest.auth(access_token)
+
+            # 1. Save Profile
+            profile_data['id'] = user_id
+            self.supabase.table('profiles').upsert(profile_data).execute()
+
+            # 2. Save Preferences
+            preferences_data['user_id'] = user_id
+            
+            # Use explicit Select + Insert/Update logic
+            existing = self.supabase.table('style_preferences').select("id").eq('user_id', user_id).execute()
+            
+            if existing.data:
+                self.supabase.table('style_preferences').update(preferences_data).eq('user_id', user_id).execute()
+            else:
+                self.supabase.table('style_preferences').insert(preferences_data).execute()
+                
             return True
         except Exception as e:
-            print(f"⚠️ Failed to save snapshot: {e}")
+            st.error(f"Database Error: {e}")
+            raise e
+
+    # ==========================================
+    # 👗 CLOSET (Future Feature)
+    # ==========================================
+    
+    def get_closet(self, user_id: str):
+        """Fetches all digital items owned by the user."""
+        try:
+            response = self.supabase.table('closet_items').select("*").eq('user_id', user_id).execute()
+            return response.data
+        except Exception as e:
+            print(f"Error fetching closet: {e}")
+            return []
+
+    def add_closet_item(self, user_id: str, item_data: dict):
+        """Adds a single item to the closet."""
+        try:
+            item_data['user_id'] = user_id
+            self.supabase.table('closet_items').insert(item_data).execute()
+            return True
+        except Exception as e:
+            print(f"Error adding item: {e}")
             return False
 
-    def load_snapshot(self, filename: str = "debug_session.json") -> Dict:
-        """Loads a runtime state from the snapshots folder."""
-        filepath = os.path.join(self.snapshot_dir, filename)
-        
-        if not os.path.exists(filepath):
-            print(f"⚠️ Snapshot not found: {filepath}")
-            return None
+    # ==========================================
+    # 📂 STATIC FILES (Preserving Old Functionality)
+    # ==========================================
 
+    def load_config(self, filename: str):
+        """
+        Helper to load static JSON files (like style_rules.json or trend_signals.json)
+        that are NOT user-specific.
+        """
         try:
-            with open(filepath, 'r') as f:
-                data = json.load(f)
-            print(f"⚡ Snapshot loaded from {filepath}")
-            return data
+            # Assuming 'data' folder exists at root
+            path = os.path.join(os.getcwd(), 'data', filename)
+            with open(path, 'r') as f:
+                return json.load(f)
         except Exception as e:
-            print(f"⚠️ Failed to load snapshot: {e}")
-            return None
+            print(f"⚠️ Could not load config {filename}: {e}")
+            return {}

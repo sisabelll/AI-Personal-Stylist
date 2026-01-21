@@ -44,7 +44,7 @@ class RefinementAgent:
 
         # 2. Call the API
         try:
-            return self.client.call_api(
+            result = self.client.call_api(
                 model=Config.OPENAI_MODEL_FAST, # Fast model is perfect for this translation task
                 messages=[
                     {"role": "system", "content": system_prompt},
@@ -52,6 +52,7 @@ class RefinementAgent:
                 ],
                 response_model=RefinementAnalysis
             )
+            return result.model_dump(exclude_none=True)
             
         except Exception as e:
             print(f"❌ Refiner Error: {e}")

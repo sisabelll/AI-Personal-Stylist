@@ -22,11 +22,15 @@ class StyleStylist:
         inspo_data = situational_signals.get('external_inspiration', {})
         inspo_vibe = inspo_data.get('vibe', '')
         
-        event_raw = constraints.get('event_type', '') or situational_signals.get('event_type', '')
+        event_signal = situational_signals.get('event_type') or constraints.get('event_type')
+        event_raw = str(event_signal or "General Day")  # Default to "General Day" if None
+        
         season = constraints.get('season', 'General') 
 
         # Calculate formality for the Logic Switch
         formal_keywords = ['wedding', 'formal', 'gala', 'interview', 'business', 'upscale', 'cocktail', 'party']
+        
+        # Now .lower() is safe because event_raw is guaranteed to be a string
         is_formal = any(k in event_raw.lower() for k in formal_keywords)
 
         # 2. CONSTRUCT THE PROMPT
@@ -118,7 +122,7 @@ class StyleStylist:
 
         # 3. CALL THE WRAPPER
         try:
-            response_data = self.client.call_api(
+            response_obj = self.client.call_api(
                 model=Config.OPENAI_MODEL_SMART,
                 messages=[
                     {"role": "system", "content": system_prompt},
@@ -127,6 +131,8 @@ class StyleStylist:
                 temperature=0.7,
                 response_model=OutfitRecommendation 
             )
+
+            response_data = response_obj.model_dump()
 
             if current_outfit and response_data.get('outfit_options'):
                 swap_requests = situational_signals.get('feedback', {}).get('swap_out', [])
@@ -139,22 +145,14 @@ class StyleStylist:
                 response_data['outfit_options'][0]['items'] = stabilized_items
             
             if response_data and 'outfit_options' in response_data:
-                # A. Define Quality Filters
-                # These keywords force Google to ignore boring product shots
-                # aesthetic_boosters = "aesthetic street style editorial photography"
                 negatives = "-clipart -vector -aliexpress -ebay -amazon -walmart -costume -clipart -vector -drawing -lowres -canvas"
 
                 for option in response_data['outfit_options']:
                     for item in option['items']:
                         raw_query = item.get('search_query', '')
-
-                        # B. SKIP CHECK: 
-                        # If the Stabilizer put back an old item that is already perfect, 
-                        # don't touch it. (Prevents double-tagging)
                         if "-men" in raw_query or "-women" in raw_query or "unisex" in raw_query:
                             continue 
 
-                        # C. CLEAN UP: Remove confusing prefixes & "My"
                         clean_query = raw_query.lower() \
                             .replace("men's", "") \
                             .replace("women's", "") \
@@ -164,19 +162,14 @@ class StyleStylist:
                             .replace(" i ", " ") \
                             .strip()
                         
-                        # D. CONSTRUCT THE "MAGAZINE" QUERY
-                        # Structure: [Gender] [Clean Item + Vibe] [Aesthetic] [Negatives] [Gender Block]
-                        
                         target_gender = wear_category.lower()
                         base_query = f"{clean_query}"
 
                         if 'women' in target_gender:
                             item['search_query'] = f"Women's {base_query} {negatives} -men -mens -male"
-                            
                         elif 'men' in target_gender and 'women' not in target_gender: 
                             item['search_query'] = f"Men's {base_query} {negatives} -women -womens -female"
-                            
-                        else: # UNISEX LOGIC
+                        else:
                             item['search_query'] = f"{base_query} {negatives} unisex gender-neutral"
 
                         print(f"📷 Aesthetic Query: {item['search_query']}")
@@ -231,6 +224,7 @@ class StyleStylist:
                 final_list.append(new_item)
                 
         return final_list
+    
     def interpret_refinement(self, user_followup: str, conversation_state: dict) -> dict:
         print(f"🔧 Interpreting Refinement: '{user_followup}'")
         prompt = f"""
@@ -249,15 +243,14 @@ class StyleStylist:
         """
 
         messages = [{"role": "system", "content": prompt}]
-        result = self.client.call_api(
-            model='gpt-4o-mini', 
+        result_obj = self.client.call_api(
+            model=Config.OPENAI_MODEL_FAST, 
             messages=messages, 
             temperature=0.5, # Slightly higher temp helps with inferring vague feedback
             response_model=RefinementAnalysis
         )
 
-        # If the helper returns {} (error), return your specific default structure
-        if not result:
+        if not result_obj:
             return {
                 "make_more": [],
                 "make_less": [],
@@ -267,7 +260,7 @@ class StyleStylist:
                 "expressed_dislikes": []
             }
             
-        return result
+        return result_obj.model_dump()
 
     def consult(self, current_outfit_context: dict, user_question: str) -> str:
         """
@@ -295,7 +288,7 @@ class StyleStylist:
         ]
         
         return self.client.call_api(
-            model='gpt-4o-mini',
+            model=Config.OPENAI_MODEL_FAST,
             messages=messages,
             temperature=0.7 
         )

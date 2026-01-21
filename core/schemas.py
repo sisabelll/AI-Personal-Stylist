@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field, ConfigDict
-from typing import List, Optional
+from typing import List, Optional, Literal
 from enum import Enum
 
 # --- CONFIG HELPER ---
@@ -10,26 +10,68 @@ def strict_config():
 # ==========================================
 # 1. INTERPRETER SCHEMAS (Input Analysis)
 # ==========================================
+class EnvironmentConstraints(BaseModel):
+    """Physical constraints driven by weather or activity."""
+    model_config = strict_config()
+
+    layering: Optional[Literal["none", "light", "heavy"]] = Field(
+        default="none", 
+        description="Required warmth level based on weather/context"
+    )
+    footwear_resistance: Optional[Literal["normal", "weather_safe"]] = Field(
+        default="normal",
+        description="Whether shoes need to handle rain/snow/mud"
+    )
 
 class HardConstraints(BaseModel):
-    """Specific constraints extracted from user input."""
+    """Specific situational limits extracted from user input."""
     model_config = strict_config()
     
-    event_type: Optional[str] = Field(default=None, description="The specific event (e.g. 'Wedding', 'Job Interview').")
-    weather: Optional[str] = Field(default=None, description="Weather constraints (e.g. 'Rainy', 'Hot').")
-    budget: Optional[str] = Field(default=None, description="Budgetary mentions (e.g. 'Cheap', 'Luxury').")
-    location: Optional[str] = Field(default=None, description="Specific location (e.g. 'NYC', 'Beach').")
-    time_of_day: Optional[str] = Field(default=None, description="Time context (e.g. 'Evening', 'Day').")
+    event_type: Optional[str] = Field(description="The specific event (e.g. 'Wedding', 'Job Interview').")
+    budget: Optional[Literal["economy", "standard", "luxury"]] = Field(default="standard")
+    time_of_day: Optional[Literal["day", "evening", "night"]] = Field(default="day")
+    
+    environment: EnvironmentConstraints = Field(default_factory=EnvironmentConstraints)
 
 class StyleInterpretation(BaseModel):
     """Output of the Context Interpreter Agent."""
     model_config = strict_config()
 
-    reasoning_steps: List[str] = Field(description="Step-by-step logic for extracting these signals.")
-    requested_items: List[str] = Field(default=[], description="Items the user explicitly wants to ADD.")
-    items_to_remove: List[str] = Field(default=[], description="Items the user explicitly wants to REMOVE.")
-    hard_constraints: HardConstraints = Field(default_factory=HardConstraints, description="Non-negotiable constraints.")
-    vibe_modifiers: List[str] = Field(default=[], description="Style adjectives (edgy, casual).")
+    # A. CoT (Chain of Thought) - Helps debugging
+    reasoning_steps: List[str] = Field(
+        description="Brief step-by-step logic. e.g. ['User mentioned dinner', 'Implies evening polish']."
+    )
+
+    # B. Strict Style Dimensions (The "Knobs" we can turn)
+    formality_level: Literal["low", "medium", "high"] = Field(
+        default="medium",
+        description="How formal the outfit needs to be."
+    )
+    social_tone: Literal["relaxed", "warm", "polished", "professional"] = Field(
+        default="polished",
+        description="The emotional vibe of the setting."
+    )
+    aesthetic_bias: Literal["quiet_luxury", "clean_chic", "romantic", "neutral", "edgy"] = Field(
+        default="clean_chic",
+        description="The visual filter to apply to the recommendations."
+    )
+
+    # C. Item Actions
+    requested_items: List[str] = Field(
+        default=[], 
+        description="Specific items the user EXPLICITLY wants to wear (e.g. 'my black skirt')."
+    )
+    items_to_remove: List[str] = Field(
+        default=[], 
+        description="Items the user explicitly DISLIKES or wants to swap out."
+    )
+    
+    # D. The "Catch-All" (For nuance)
+    hard_constraints: HardConstraints = Field(default_factory=HardConstraints)
+    vibe_modifiers: List[str] = Field(
+        default=[], 
+        description="Extra adjectives that don't fit the strict buckets (e.g. 'cozy', 'sexy')."
+    )
 
 
 # ==========================================

@@ -1,6 +1,6 @@
 {
   "personal_color_theory": {
-    "spring_warm_tone": {
+    "Spring Warm": {
       "overall_type": "Warm and Bright",
       "main_characteristic": "High Value, High Chroma, Yellow Base (Warm)",
       "sub_types": {
@@ -30,7 +30,7 @@
         }
       }
     },
-    "summer_cool_tone": {
+    "Summer Ccool": {
       "overall_type": "Cool and Soft",
       "main_characteristic": "Medium to High Value, Low Chroma, Blue Base (Cool)",
       "sub_types": {
@@ -60,7 +60,7 @@
         }
       }
     },
-    "autumn_warm_tone": {
+    "Autumn Warm": {
       "overall_type": "Warm and Deep",
       "main_characteristic": "Low Value, Low Chroma, Yellow Base (Warm)",
       "sub_types": {
@@ -90,7 +90,7 @@
         }
       }
     },
-    "winter_cool_tone": {
+    "Winter Cool": {
       "overall_type": "Cool and Clear/Deep",
       "main_characteristic": "High Contrast (Very High/Very Low Value), High Chroma, Blue Base (Cool)",
       "sub_types": {
@@ -122,7 +122,7 @@
     }
   },
   "body_style_essence_theory": {
-    "straight_type": {
+    "straight": {
         "type_name": "Straight Type (Rectangle/Column)",
         "main_characteristic": "Thick, well-developed musculature. Smooth skin texture. Upper body tends to look bulky. Bone structure is not prominent.",
         "styling_principle": "Simple, Structured, Clean. Use clean H-line silhouettes to minimize upper body bulk.",
@@ -139,7 +139,7 @@
         }
     },
 
-    "wave_type": {
+    "wave": {
         "type_name": "Wave Type (Triangle/Pear)",
         "main_characteristic": "Delicate and thin bone structure. Weight tends to accumulate on the lower body. Upper body looks slender and soft.",
         "styling_principle": "Soft, Curved, Decorative. Emphasize the X-line (waist definition) and add volume/interest to the upper body.",
@@ -156,7 +156,7 @@
         }
     },
 
-    "natural_type": {
+    "natural": {
         "type_name": "Natural Type (Inverted Triangle/Oval)",
         "main_characteristic": "Prominent bone structure and joints (e.g., collarbones, hips). Large overall frame. Less emphasis on muscle or fat softness.",
         "styling_principle": "Casual, Loose Fit, Lengthy. Use long, relaxed lines to work with the skeletal frame.",
@@ -174,35 +174,77 @@
     }
   },
   "aesthetic_style_summary": {
-    "chic": {
-      "core_vibe": "Effortless, Understated, Polished. Looks expensive without trying too hard.",
-      "color_palette_preferred": ["Minimalist and Neutral (Black, White, Cream, Navy, Gray, Beige, Camel)", "Occasional True Red pop"],
-      "styling_key_elements": ["High-quality basics, perfect fit", "Tailored blazers, trench coats", "Simple fine jewelry/hardware", "Classic loafers/sleek flats"]
+    "Minimalist": {
+      "vibe": "Less is more. Clean lines, neutral palette, focus on silhouette.",
+      "keywords": ["clean", "architectural", "capsule", "timeless", "uncomplicated"],
+      "key_brands": ["COS", "Jil Sander", "The Row", "Uniqlo U", "Lemaire"],
+      "fabric_focus": "Crisp cotton, structured wool, matte silk."
     },
-    "minimalist": {
-      "core_vibe": "Clean lines, functionality, simplicity. Focuses on form and necessary detail.",
-      "color_palette_preferred": ["Strictly Neutral (White, Black, Charcoal, Nude, Taupe)", "Monochromatic or tone-on-tone"],
-      "styling_key_elements": ["Unadorned, sculptural cuts", "High-quality, non-textured fabrics", "Utility and lack of logos"]
+    "Streetwear": {
+      "vibe": "Rooted in youth culture. Comfortable, oversized, logo-centric or graphic.",
+      "keywords": ["hype", "oversized", "sneakers", "hoodie", "utilitarian"],
+      "key_brands": ["Stussy", "Supreme", "Aimé Leon Dore", "Nike", "Carhartt WIP"],
+      "fabric_focus": "Heavyweight jersey, fleece, technical nylon, denim."
     },
-    "bohemian_boho": {
-      "core_vibe": "Free-spirited, Earthy, Artistic. Embraces natural elements and global influences.",
-      "color_palette_preferred": ["Warm, Earthy Tones (Terracotta, Olive Green, Rust, Cream, Mustard Yellow, Deep Teal)", "Layering of muted colors"],
-      "styling_key_elements": ["Flowing silhouettes (Wide-leg pants, loose tunics)", "Natural textures (linen, cotton, crochet)", "Fringe, embroidery, and patchwork"]
+    "Old Money": {
+      "vibe": "Stealth wealth. Heritage styles that imply generational status.",
+      "keywords": ["quiet luxury", "classic", "country club", "tailored", "conservative"],
+      "key_brands": ["Ralph Lauren", "Loro Piana", "Brunello Cucinelli", "Hermès"],
+      "fabric_focus": "Cashmere, linen, tweed, silk."
     },
-    "preppy": {
-      "core_vibe": "Classic, Ivy League, Sporty refinement. Polished, traditional look.",
-      "color_palette_preferred": ["Bright and Classic (Navy, White, True Red, Hunter Green, Yellow)", "Nautical stripes and tartans"],
-      "styling_key_elements": ["Tailored separates (Button-downs, knit vests)", "Cable-knit sweaters, collared shirts", "Loafers/chinos", "Structured bags"]
+    "Y2K": {
+      "vibe": "Late 90s/Early 2000s nostalgia. Playful, slightly tacky, skin-baring.",
+      "keywords": ["low-rise", "velour", "baby tee", "butterfly", "metallic"],
+      "key_brands": ["Blumarine", "Juicy Couture", "Diesel", "Miu Miu (Archive)"],
+      "fabric_focus": "Velour, rhinestone mesh, denim, satin."
     },
-    "grunge_edgy": {
-      "core_vibe": "Rebellious, Dark, Edgy. Blends anti-fashion with punk/rock influence.",
-      "color_palette_preferred": ["Dark and Moody (Black, Charcoal, Deep Red/Maroon, Forest Green)", "Paired with neon accents or stark white"],
-      "styling_key_elements": ["Layering (oversized shirt over long sleeve)", "Distressed denim, platform boots, combat boots", "Chains, dark hardware"]
+    "Coquette": {
+      "vibe": "Hyper-feminine, vintage innocence, delicate and playful.",
+      "keywords": ["bows", "lace", "pastel", "soft", "girlhood"],
+      "key_brands": ["LoveShackFancy", "Sandy Liang", "Rodarte", "Selkie"],
+      "fabric_focus": "Lace, eyelet, ribbon, chiffon."
     },
-    "cottagecore": {
-      "core_vibe": "Nostalgic, Rural, Idyllic. Romanticizes the simplicity of country life and nature.",
-      "color_palette_preferred": ["Soft and Muted (Sage Green, Dusty Pink, Cream, Lavender, Baby Blue)", "Earthy, subdued pastels"],
-      "styling_key_elements": ["Soft silhouettes (Puffy sleeves, smocked detailing, tiered bottoms)", "Natural fabrics, embroidery, delicate botanical prints"]
+    "Boho": {
+      "vibe": "Free-spirited, 70s influenced, artistic and flowy.",
+      "keywords": ["fringe", "maxi", "prints", "earthy", "layered"],
+      "key_brands": ["Chloé", "Isabel Marant", "Zimmermann", "Ulla Johnson"],
+      "fabric_focus": "Suede, crochet, floral silk, shearling."
+    },
+    "Corporate Chic": {
+      "vibe": "The 'Office Siren'. Sharp, authoritative, but fitted and stylish.",
+      "keywords": ["structured", "sharp", "pencil skirt", "blazer", "90s office"],
+      "key_brands": ["Saint Laurent", "Prada", "Theory", "Ann Taylor (Vintage)"],
+      "fabric_focus": "Pinstripe wool, crisp shirting, patent leather."
+    },
+    "Athleisure": {
+      "vibe": "Performance wear styled for everyday life. Sleek and functional.",
+      "keywords": ["sporty", "leggings", "gym-to-street", "technical", "comfort"],
+      "key_brands": ["Alo Yoga", "Lululemon", "Sporty & Rich", "Varley"],
+      "fabric_focus": "Spandex blends, moisture-wicking tech, modal."
+    },
+    "Grunge": {
+      "vibe": "90s Seattle rock scene. Anti-fashion, distressed, layered.",
+      "keywords": ["flannel", "distressed", "combat boots", "oversized", "dark"],
+      "key_brands": ["R13", "Dr. Martens", "Marc Jacobs (Heaven)", "AllSaints"],
+      "fabric_focus": "Flannel, distressed denim, waffle knit, leather."
+    },
+    "Preppy": {
+      "vibe": "Ivy League classic. Collegiate, neat, and polished.",
+      "keywords": ["varsity", "pleated", "argyle", "loafers", "collegiate"],
+      "key_brands": ["Miu Miu", "Thom Browne", "Gant", "Lacoste"],
+      "fabric_focus": "Cable knit, oxford cloth, wool gabardine."
+    },
+    "Avant-Garde": {
+      "vibe": "Fashion as art. Deconstructed, asymmetrical, pushing boundaries.",
+      "keywords": ["deconstructed", "asymmetric", "dark", "sculptural", "experimental"],
+      "key_brands": ["Rick Owens", "Comme des Garçons", "Maison Margiela", "Yohji Yamamoto"],
+      "fabric_focus": "Treated leather, boiled wool, neoprene."
+    },
+    "Scandi": {
+      "vibe": "Copenhagen style. Practical comfort mixed with playful colors and prints.",
+      "keywords": ["playful", "layered", "colorful", "oversized collar", "effortless"],
+      "key_brands": ["Ganni", "Saks Potts", "Acne Studios", "Baum und Pferdgarten"],
+      "fabric_focus": "Recycled poly, organic cotton, mohair knits."
     }
   }
 }
