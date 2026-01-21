@@ -310,6 +310,52 @@
         "Silver",
         "Yellow"
       ]
+    },
+    "bella hadid": {
+      "name": "Bella Hadid",
+      "vibe": "Effortlessly Chic with a Bold Edge",
+      "wardrobe_staples": [
+        "dark-wash jeans",
+        "brown trench coat",
+        "white button-down shirt",
+        "distressed leather Coach Tabby bag",
+        "brown slingback pumps",
+        "brown leather jacket",
+        "black turtleneck",
+        "bootcut jeans",
+        "block-heel boots",
+        "white jeans",
+        "red sweater",
+        "fur coat",
+        "burgundy bag",
+        "denim shorts",
+        "dark chocolate cowboy boots",
+        "coquette white top"
+      ],
+      "statement_pieces": [
+        "silky Schiaparelli couture fall 2025 gown",
+        "vintage T-shirt featuring En Vogue's 1992 album cover",
+        "lace bodice dress with a ruffled skirt from Rokh's Fall/Winter 2024 collection",
+        "vintage pink floral silk dress from Yves Saint Laurent's Spring/Summer 1999 Couture",
+        "black oversized parachute pants",
+        "see-through floral print tube top"
+      ],
+      "fabric_preferences": [
+        "silk",
+        "denim",
+        "leather",
+        "suede"
+      ],
+      "color_palette": [
+        "fire red",
+        "chocolate brown",
+        "white",
+        "dark denim",
+        "brown",
+        "black",
+        "pink",
+        "camel"
+      ]
     }
   }
 }

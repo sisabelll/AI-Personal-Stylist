@@ -125,6 +125,7 @@ class StyleResearcherAgent:
         )
 
         # C. Save
+        result = result.model_dump(exclude_none=True)
         self._save_to_kb(entity_name, result)
         return result
 
