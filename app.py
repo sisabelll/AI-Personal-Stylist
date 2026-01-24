@@ -1,5 +1,9 @@
+import json
 import streamlit as st
 import traceback
+from datetime import datetime
+from urllib.parse import quote
+from urllib.request import urlopen
 from dotenv import load_dotenv
 
 # --- SERVICES & AGENTS ---
@@ -218,6 +222,41 @@ def display_outfit_recommendation(response_data):
 # =========================================================
 # 4. MAIN INTERFACE
 # =========================================================
+@st.cache_data(ttl=900)
+def get_current_temperature_c(location_text: str):
+    if not location_text:
+        return None
+    try:
+        geo_url = f"https://geocoding-api.open-meteo.com/v1/search?name={quote(location_text)}&count=1"
+        with urlopen(geo_url, timeout=3) as response:
+            geo_data = json.load(response)
+        results = geo_data.get("results") or []
+        if not results:
+            return None
+        latitude = results[0].get("latitude")
+        longitude = results[0].get("longitude")
+        if latitude is None or longitude is None:
+            return None
+
+        weather_url = (
+            "https://api.open-meteo.com/v1/forecast"
+            f"?latitude={latitude}&longitude={longitude}&current=temperature_2m"
+        )
+        with urlopen(weather_url, timeout=3) as response:
+            weather_data = json.load(response)
+        temperature = (weather_data.get("current") or {}).get("temperature_2m")
+        if temperature is None:
+            return None
+        return round(float(temperature))
+    except Exception:
+        return None
+
+location_city = user_profile.get("location_city", "Unknown")
+season = st.session_state.manager._infer_season()
+temperature_c = get_current_temperature_c(location_city)
+weather_label = f"{temperature_c}°C" if temperature_c is not None else "Weather n/a"
+now_label = datetime.now().strftime("%b %d, %Y • %I:%M %p")
+st.caption(f"{location_city} • {season} • {weather_label} • {now_label}")
 
 st.title(f"✨ Stylist for {user_profile.get('full_name')}")
 

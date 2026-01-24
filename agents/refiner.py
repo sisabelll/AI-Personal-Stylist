@@ -24,10 +24,46 @@ class RefinementAgent:
         - make_less: Vibe reductions (e.g. "too formal", "less colorful").
         - swap_out: Specific items to remove/change (e.g. "I hate the boots", "Can I wear sneakers instead?").
         - emotional_goal: New target feeling (e.g. "I want to feel powerful").
-        
+        SWAP vs ATTRIBUTE CORRECTION (CRITICAL)
+
+        If the user is correcting details of an item (color, texture, hardware, silhouette) but still wants the same item type,
+        DO NOT use swap_out. Use attribute_corrections instead.
+
+        Use swap_out ONLY when the user explicitly wants a different item/category/type
+        (e.g., "replace the shoes", "no Uggs", "swap the boots for sneakers", "change pants").
+
+        Examples:
+        User: "my Uggs aren't furry"
+        => attribute_corrections: [{target_category:"Shoes", must_avoid:["furry","shearling"], must_include:["smooth exterior"]}]
+        => swap_out: []
+
+        User: "I don't want Uggs, give me Chelsea boots"
+        => swap_out: ["Shoes"]
+        => attribute_corrections: []
+
+        attribute_corrections must be a list of objects, each with:
+        - target_category
+        - must_include (list of strings)
+        - must_avoid (list of strings)
+        - note (optional)
+        Example:
+        User: "my Chelsea boots are brown"
+        => swap_out: []
+        => attribute_corrections: [
+        { "target_category": "Shoes", "must_include": ["brown chelsea boots"], "must_avoid": ["black"] }
+        ]
+
+
         # CRITICAL RULES
         - If the user suggests a REPLACEMENT (e.g. "wear jeans instead"), put the OLD category in 'swap_out' (e.g. "Pants").
         - Do NOT hallucinate items that aren't there.
+        CRITICAL: OWNED ITEM CLARIFICATIONS ARE NOT SWAPS
+        If the user says "my ___ is/are ___" about an item (color, texture, hardware),
+        they are clarifying their owned item. This is NOT a swap.
+
+        - Do NOT put that category in swap_out.
+        - Use attribute_corrections with target_category and must_include/must_avoid.
+
         """
         
         # 1. Format Context safely

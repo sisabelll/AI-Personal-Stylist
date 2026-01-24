@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field, ConfigDict
-from typing import List, Optional, Literal
+from typing import Dict, List, Optional, Literal
 from enum import Enum
 
 # --- CONFIG HELPER ---
@@ -93,6 +93,24 @@ class StyleResearchDoc(BaseModel):
 # ==========================================
 # 3. REFINEMENT SCHEMAS (Feedback)
 # ==========================================
+class AttributeCorrection(BaseModel):
+    model_config = strict_config()
+
+    target_category: Literal["Top", "Bottom", "Shoes", "Outerwear", "Accessory", "Accessories", "Dress", "Jumpsuit"] = Field(
+        description="Which category the correction applies to."
+    )
+    must_include: List[str] = Field(
+        default_factory=list,
+        description="Attributes that must be reflected (e.g., 'beige', 'no buckle', 'smooth leather', 'not furry')."
+    )
+    must_avoid: List[str] = Field(
+        default_factory=list,
+        description="Attributes that must not appear (e.g., 'furry', 'shearling', 'buckles')."
+    )
+    note: Optional[str] = Field(
+        default=None,
+        description="Any extra nuance in plain language."
+    )
 
 class RefinementAnalysis(BaseModel):
     """Output of the Refinement Interpreter."""
@@ -101,6 +119,7 @@ class RefinementAnalysis(BaseModel):
     make_more: List[str] = Field(default=[], description="Attributes to enhance (e.g., 'more edgy').")
     make_less: List[str] = Field(default=[], description="Attributes to reduce (e.g., 'less formal').")
     swap_out: List[str] = Field(default=[], description="Specific items to replace.")
+    attribute_corrections: List[AttributeCorrection] = Field(default_factory=list)
     emotional_goal: Optional[str] = Field(default=None, description="New emotional target.")
     expressed_likes: List[str] = Field(default=[], description="Things the user specifically liked.")
     expressed_dislikes: List[str] = Field(default=[], description="Things the user specifically disliked.")
@@ -144,6 +163,14 @@ class OutfitOption(BaseModel):
     name: str = Field(description="Creative name for this look (e.g. 'Rainy Day Chic').")
     items: List[OutfitItem]
 
+class StylingRationale(BaseModel):
+    model_config = strict_config()
+    color_season_fit: str = Field(description="2-4 sentences: why palette works for user's color season.")
+    body_essence_fit: str = Field(description="2-4 sentences: why silhouette/lines work for user's body essence.")
+    inspiration_translation: str = Field(description="2-4 sentences: how this channels the inspiration without cosplay.")
+    hero_item_and_balance: str = Field(description="1-3 sentences: what the hero is + how the rest supports it.")
+    key_proportion_moves: List[str] = Field(description="Bullet list of proportion choices that make the look flattering.")
+
 class OutfitRecommendation(BaseModel):
     """The final response from the Stylist Agent."""
     model_config = strict_config()
@@ -153,3 +180,27 @@ class OutfitRecommendation(BaseModel):
     season: str
     reasoning: str = Field(description="EXECUTIVE SUMMARY: A 2-3 sentence pitch to the client explaining the vibe, why it works for the weather/event, and the style strategy used.")
     outfit_options: List[OutfitOption]
+    styling_rationale: StylingRationale
+
+# ==========================================
+# 6. FEEDBACK SCHEMAS (Critique & Edit Plan)
+# ==========================================
+
+class EditAction(BaseModel):
+    model_config = strict_config()
+    target_category: Literal["Top", "Bottom", "Shoes", "Outerwear", "Accessory", "Dress", "Jumpsuit", "Other"]
+    action_type: Literal["swap", "add", "remove", "restyle", "tighten_query"]
+    instruction: str
+
+class EditPlan(BaseModel):
+    model_config = strict_config()
+    hero: str = Field(description="Name the hero item or hero move.")
+    actions: List[EditAction] = Field(default_factory=list, description="Max 2 actions.")
+
+class OutfitCritique(BaseModel):
+    model_config = strict_config()
+    score: int = Field(ge=1, le=10)
+    verdict: Literal["accept", "revise"]
+    summary: str
+    main_issue: str
+    plan: EditPlan
