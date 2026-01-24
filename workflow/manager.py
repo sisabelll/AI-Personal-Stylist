@@ -2,10 +2,12 @@ import json
 import os
 import time
 from datetime import datetime
+import traceback
 from typing import Dict, Any
 
 # --- AGENTS & CORE ---
-from core.schemas import UserActionType, StyleInterpretation
+from core.schemas import UserActionType, StyleInterpretation, OutfitCritique, EditPlan
+from core.style_program_schemas import StyleProgram
 
 from agents.interpreter import ContextInterpreter, StyleConstraintBuilder
 from agents.stylist import StyleStylist
@@ -14,15 +16,18 @@ from agents.refiner import RefinementAgent
 from agents.style_program import StyleProgramBuilder
 from agents.editor import OutfitCritic, OutfitSurgeon
 from agents.qa import OutfitQA
+from agents.editor import EditorAgent
 
 # --- SERVICES ---
 from services.catalog import CatalogClient
 
 class ConversationManager:
-    def __init__(self, client, user_profile, style_rules):
+    def __init__(self, client, user_profile, style_rules, storage=None, dev_mode=False):
         self.client = client
         self.user_profile = user_profile
-        
+        self.storage = storage
+        self.dev_mode = dev_mode
+
         # 1. Initialize Static Rules (The "Librarian")
         builder = StyleConstraintBuilder(user_profile, style_rules)
         self.static_constraints = builder.build()
@@ -37,6 +42,7 @@ class ConversationManager:
         self.critic = OutfitCritic(client)
         self.surgeon = OutfitSurgeon(client)
         self.qa = OutfitQA()
+        self.editor = EditorAgent(client)
 
         # 3. Initialize State
         self.current_context = {}  
@@ -44,7 +50,8 @@ class ConversationManager:
             "current_recommendation": None,
             "refinement_signals": {}, 
             "anchored_items": [],
-            "history": []
+            "history": [],
+            "revisions": []
         }
         
         # 4. Local Snapshot Config (Debugging only)
@@ -59,8 +66,10 @@ class ConversationManager:
         """Helper to access the current recommendation safely."""
         return self.conversation_state.get('current_recommendation', {})
     
-    def start_new_session(self, user_request_context, user_query, status_callback=None, use_cache=True):
+    def start_new_session(self, user_request_context, user_query, status_callback=None, use_cache=None):
         """Initializes a session by interpreting the raw request."""
+        if use_cache is None:
+            use_cache = self.dev_mode
         
         # 1. CACHE CHECK (Developer Mode)
         if use_cache:
@@ -75,11 +84,7 @@ class ConversationManager:
         
         # 2. INTERPRET INPUT
         interpretation: StyleInterpretation = self.interpreter.interpret(user_request_context, user_query)
-        if hasattr(interpretation, "model_dump"):
-            new_signals = interpretation.model_dump(exclude_none=True)
-        else:
-            new_signals = interpretation
-
+        new_signals = interpretation.model_dump(exclude_none=True) if hasattr(interpretation, "model_dump") else interpretation
         self.current_context = self._smart_update(self.current_context, new_signals)
 
         # 3. RESEARCHER (Check for External Inspiration)
@@ -89,7 +94,9 @@ class ConversationManager:
         self.conversation_state["current_recommendation"] = None
         self.conversation_state["refinement_signals"] = {}
         self.conversation_state["anchored_items"] = self.current_context.get('requested_items', [])
-        
+        self.conversation_state["revisions"] = []
+        self.conversation_state["last_critique"] = None
+
         if status_callback: status_callback("🎨 Synthesizing outfit recommendation...")
 
         hard_constraints = self.current_context.get('hard_constraints', {})
@@ -104,18 +111,17 @@ class ConversationManager:
         }
         
         # 5. GENERATE OUTFIT
-        style_program = self._build_style_program(situational_signals)
-
-        recommendation_obj = self.stylist.recommend(
-            constraints=self.user_profile,
-            situational_signals=situational_signals,
+        final_obj, critique, draft_obj = self._generate_with_editor_pass(
             user_query=user_query,
-            current_outfit=None,
-            style_program=style_program
+            situational_signals=situational_signals,
+            current_outfit_items=None,
+            revise_threshold=8,
+            store_threshold=9,
+            version="editor_v1",
         )
-
-        recommendation = recommendation_obj.model_dump()
-
+        self.conversation_state["last_critique"] = critique.model_dump()
+        recommendation = final_obj.model_dump()
+        
         # 6. VISUAL SEARCH
         print("🛍️ Searching for products...")
         if recommendation.get('outfit_options'):
@@ -129,7 +135,7 @@ class ConversationManager:
             "content": recommendation.get('reasoning', "Here is your look.")
         })
 
-        self._save_snapshot() # Auto-save for debugging
+        self._save_snapshot()
         return recommendation
 
     def refine_session(self, user_feedback_text):
@@ -179,63 +185,118 @@ class ConversationManager:
     # ====================================================
     # 🧠 CORE LOGIC
     # ====================================================
-    def _generate_with_editor_loop(self, user_query: str, situational_signals: dict, current_outfit_items: list = None):
-        """
-        Centralized pipeline:
-        StyleProgram -> Stylist -> Critic -> (optional) Surgeon -> QA
-        Keeps loop logic out of start_new_session/_refine_look.
-        """
-
-        program = self.style_program_builder.build(
-            constraints=self.user_profile,
+    def _generate_with_editor_pass(
+        self,
+        user_query: str,
+        situational_signals: dict,
+        current_outfit_items: list = None,
+        revise_threshold: int = 8,
+        store_threshold: int = 9,
+        store_all: bool = False,
+        version: str = "editor_v1",
+    ):
+        style_program = self._build_style_program(
             situational_signals=situational_signals,
+            user_query=user_query
+        )
+        signals = dict(situational_signals)
+
+        print("\n🧵 ================= EDITOR PIPELINE =================")
+
+        # 1) Draft
+        draft_obj = self.stylist.recommend(
+            constraints=self.user_profile,
+            situational_signals=signals,
             user_query=user_query,
-            current_outfit=current_outfit_items
+            current_outfit=current_outfit_items,
+            style_program=style_program,
         )
 
-        # inject brief (tiny, avoids stylist prompt bloat)
-        situational_signals = dict(situational_signals)
-        situational_signals["style_brief"] = program.style_brief
-        situational_signals["hard_constraints_summary"] = program.hard_constraints_summary
+        print("🟡 Draft generated")
 
-        # 1) draft
-        draft = self.stylist.recommend(
-            constraints=self.user_profile,
-            situational_signals=situational_signals,
-            user_query=user_query,
-            current_outfit=current_outfit_items
-        )
-
-        # Stabilize immediately in edit mode (enforces locks even if LLM misbehaves)
-        if current_outfit_items and draft.get("outfit_options"):
-            swap_requests = (situational_signals.get("feedback") or {}).get("swap_out", [])
-            items = draft["outfit_options"][0].get("items", [])
-            draft["outfit_options"][0]["items"] = self.stylist._stabilize_outfit(
-                new_items=items, old_items=current_outfit_items, swap_requests=swap_requests
+        # 2) Critique (SAFE)
+        critique = None
+        try:
+            critique = self.editor.critique(
+                outfit=draft_obj,
+                user_profile=self.user_profile,
+                situational_signals=signals,
+            )
+        except Exception as e:
+            print(f"⚠️ Editor critique failed: {e}")
+            print(traceback.format_exc())
+            
+            # fallback critique: accept draft (so you don't block the user)
+            critique = OutfitCritique(
+                score=7,
+                verdict="accept",
+                summary="Editor unavailable; returning draft.",
+                main_issue="Editor error",
+                plan=EditPlan(hero="N/A", actions=[]),
             )
 
-        critique = self.critic.evaluate(program=program, recommendation=draft, current_outfit=current_outfit_items)
+        # Now it's safe to print
+        print("🧠 Editor critique")
+        print(f"   Score: {critique.score}/10")
+        print(f"   Verdict: {critique.verdict}")
+        print(f"   Main issue: {critique.main_issue}")
 
-        if critique.get("verdict") == "pass":
-            return draft
+        # 3) Optional revise
+        final_obj = draft_obj
+        if critique.verdict == "revise" and critique.score < revise_threshold and critique.plan.actions:
+            print("🔁 Revision TRIGGERED")
+            revised_signals = dict(signals)
+            revised_signals["editor_plan"] = critique.plan.model_dump()
 
-        # 2) one surgical revision
-        revised = self.surgeon.revise(program=program, recommendation=draft, critique=critique, current_outfit=current_outfit_items)
-
-        # Stabilize again in edit mode
-        if current_outfit_items and revised.get("outfit_options"):
-            swap_requests = (situational_signals.get("feedback") or {}).get("swap_out", [])
-            items = revised["outfit_options"][0].get("items", [])
-            revised["outfit_options"][0]["items"] = self.stylist._stabilize_outfit(
-                new_items=items, old_items=current_outfit_items, swap_requests=swap_requests
+            final_obj = self.stylist.recommend(
+                constraints=self.user_profile,
+                situational_signals=revised_signals,
+                user_query=user_query,
+                current_outfit=current_outfit_items,
+                style_program=style_program,
             )
+            print("✅ Revision applied")
+        else:
+            print("⏭️ No revision needed")
 
-        qa = self.qa.check(revised)
-        if qa.get("passed"):
-            return revised
+        # 4) Log revisions (SAFE)
+        def _safe_dump(x):
+            return x.model_dump() if hasattr(x, "model_dump") else x
 
-        # fail-safe: return best attempt rather than looping forever
-        return revised or draft
+        self.conversation_state.setdefault("revisions", []).append({
+            "input": user_query,
+            "situational_signals": signals,
+            "draft": _safe_dump(draft_obj),
+            "critique": _safe_dump(critique),
+            "final": _safe_dump(final_obj),
+            "final_score": critique.score,
+            "accepted": critique.score >= store_threshold,
+            "version": version,
+        })
+
+        # 5) Store to Supabase (optional)
+        accepted = critique.score >= store_threshold
+        if self.storage and (store_all or accepted):
+            try:
+                self.storage.insert_styling_revision({
+                    "user_id": str(self.user_profile.get("id")),
+                    "user_query": user_query,
+                    "situational_signals": signals,
+                    "draft_outfit": _safe_dump(draft_obj),
+                    "critique": _safe_dump(critique),
+                    "final_outfit": _safe_dump(final_obj),
+                    "final_score": critique.score,
+                    "accepted": bool(accepted),
+                    "version": version,
+                })
+                print("✅ Stored in Supabase")
+            except Exception as e:
+                print(f"⚠️ Supabase insert failed: {e}")
+
+        print("🧵 =============== END EDITOR PIPELINE ===============\n")
+        return final_obj, critique, draft_obj
+
+
 
     def _refine_look(self, user_text: str):
         """The 'Action' function for Route D."""
@@ -247,6 +308,7 @@ class ConversationManager:
             current_outfit=current_data, 
             user_input=user_text
         )
+        feedback = feedback_analysis.model_dump() if hasattr(feedback_analysis, "model_dump") else (feedback_analysis or {})
 
         # 2. PREPARE CONTEXT
         current_outfit_items = []
@@ -256,25 +318,26 @@ class ConversationManager:
             current_outfit_items = current_data['outfit_options'][0].get('items', [])
 
         situational_signals = {
-            "feedback": feedback_analysis,   
+            "feedback": feedback,   
             "event_type": hard_constraints.get('event_type'),
             "external_inspiration": self.current_context.get('external_style_inspiration', {}),
             "items_to_remove": self.current_context.get('items_to_remove', []),
-            "attribute_corrections": feedback_analysis.get("attribute_corrections", [])
+            "attribute_corrections": feedback_analysis.get("attribute_corrections", []),
+            "edit_mode": True
         }
 
         # 3. CALL STYLIST (Edit Mode)
-        style_program = self._build_style_program(situational_signals)
-
-        new_obj = self.stylist.recommend(
-            constraints=self.user_profile,
-            situational_signals=situational_signals,
+        final_obj, critique, draft_obj = self._generate_with_editor_pass(
             user_query=user_text,
-            current_outfit=current_outfit_items,
-            style_program=style_program
+            situational_signals=situational_signals,
+            current_outfit_items=current_outfit_items,
+            revise_threshold=8,
+            store_threshold=9,
+            version="editor_v1",
         )
+        self.conversation_state["last_critique"] = critique.model_dump()
+        new_recommendation = final_obj.model_dump()
 
-        new_recommendation = new_obj.model_dump()
 
         # 4. SEARCH
         if new_recommendation.get('outfit_options'):
@@ -305,34 +368,49 @@ class ConversationManager:
                 researched_data = self.researcher.get_profile(icon_name)
                 self.current_context['external_style_inspiration'] = researched_data
 
-    def _build_style_program(self, situational_signals: dict) -> dict:
-        color = self.user_profile.get("personal_color", "General")
-        body = self.user_profile.get("body_style_essence", "General")
-        season = self._infer_season()
+    def _build_style_program(self, situational_signals: dict, user_query: str) -> StyleProgram:
+        color = self.user_profile.get("color_season") or self.user_profile.get("personal_color") or "General"
+        body = self.user_profile.get("body_style_essence") or "General"
+        prefs = self.user_profile.get("preferences") or {}
+        icons = prefs.get("style_icons") or []
+        brands = prefs.get("favorite_brands") or []
 
-        style_brief = "\n".join([
-            f"Vibe: {self.current_context.get('aesthetic_bias','clean_chic')} + {self.current_context.get('social_tone','polished')}",
-            f"Silhouette: honor {body}; clean proportion; leg-lengthening.",
-            f"Palette: prioritize {color}; keep contrast controlled.",
-            "Editorial: exactly ONE hero element (silhouette OR texture OR accessory).",
-            "NOs: avoid cheap-shine fabrics, overly busy prints, and mismatched formality footwear.",
-        ])
+        aesthetic = self.current_context.get("aesthetic_bias", situational_signals.get("aesthetic", "clean_chic"))
+        vibe = (situational_signals.get("external_inspiration") or {}).get("vibe", "")
 
-        constraints_summary = "\n".join([
-            f"Season: {season}",
-            "Respect explicit requested items and swap/remove instructions.",
-            "If editing: do not change locked categories; copy unchanged item_name/search_query verbatim.",
-        ])
+        constraints_summary = [
+            f"Honor color season: {color}.",
+            f"Honor body essence lines: {body}.",
+        ]
+        if aesthetic:
+            constraints_summary.append(f"Aesthetic bias: {aesthetic}.")
+        if icons:
+            constraints_summary.append(f"Inspiration reference(s): {', '.join(icons[:2])}.")
+        if brands:
+            constraints_summary.append(f"Brand gravity (optional): {', '.join(brands[:3])}.")
 
-        # also expose the interpreter “knobs” to stylist so it stops guessing
-        situational_signals["style_interpretation"] = {
-            "formality_level": self.current_context.get("formality_level"),
-            "social_tone": self.current_context.get("social_tone"),
-            "aesthetic_bias": self.current_context.get("aesthetic_bias"),
-            "vibe_modifiers": self.current_context.get("vibe_modifiers", []),
-        }
+        editorial_nos = [
+            "No generic mall-basic stacks (must have a point of view).",
+            "No more than one hero element (silhouette OR texture OR accessory).",
+            "Avoid random warm browns near the face if user is Cool/Summer unless justified.",
+            "Avoid proportion-breaking hems (esp. with mid-calf boots).",
+        ]
 
-        return {"style_brief": style_brief, "constraints_summary": constraints_summary}
+        hero_strategy = "Choose exactly one hero move (proportion OR texture OR accessory) and keep the rest quiet."
+
+        style_brief = (
+            f"Create a stylish, intentional look (not generic). "
+            f"Translate inspiration vibe ({vibe}) into wearable choices. "
+            f"Make the outfit feel curated with one clear hero decision."
+        )
+
+        return StyleProgram(
+            style_brief=style_brief,
+            constraints_summary=constraints_summary,
+            editorial_nos=editorial_nos,
+            hero_strategy=hero_strategy,
+            trend_budget=1,
+        )
 
     def _infer_season(self) -> str:
         location_text = self.user_profile.get("location_city")

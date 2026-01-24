@@ -155,8 +155,10 @@ if "manager" not in st.session_state:
     # Initialize Manager with REAL user data
     st.session_state.manager = ConversationManager(
         client=client, 
-        user_profile=user_profile, # <--- Passing the real DB profile
-        style_rules=style_rules
+        user_profile=user_profile,
+        style_rules=style_rules,
+        storage = storage,
+        dev_mode = DEV_MODE
     )
     
     # Send a personalized Welcome Message

@@ -108,6 +108,17 @@ class StorageService:
         except Exception as e:
             print(f"Error adding item: {e}")
             return False
+        
+    # ==========================================
+    # Uploading Revisions
+    # ==========================================
+    def insert_styling_revision(self, row: dict):
+        """
+        Inserts one revision event into Supabase.
+        `row` must be JSON-serializable for jsonb fields.
+        """
+        return self.supabase.table("styling_revisions").insert(row).execute()
+    
 
     # ==========================================
     # 📂 STATIC FILES (Preserving Old Functionality)

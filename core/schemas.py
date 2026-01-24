@@ -185,7 +185,6 @@ class OutfitRecommendation(BaseModel):
 # ==========================================
 # 6. FEEDBACK SCHEMAS (Critique & Edit Plan)
 # ==========================================
-
 class EditAction(BaseModel):
     model_config = strict_config()
     target_category: Literal["Top", "Bottom", "Shoes", "Outerwear", "Accessory", "Dress", "Jumpsuit", "Other"]

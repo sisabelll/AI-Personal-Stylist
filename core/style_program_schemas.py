@@ -5,11 +5,9 @@ def strict_config():
     return ConfigDict(extra="forbid")
 
 class StyleProgram(BaseModel):
-    """Internal compiled style guidance (kept short)."""
     model_config = strict_config()
-
-    style_brief: str = Field(description="Short editorial brief (<= ~200 tokens).")
-    constraints_summary: str = Field(description="Non-negotiables, short.")
-    editorial_nos: List[str] = Field(default_factory=list)
-    hero_strategy: Optional[str] = Field(default="Exactly one hero element.")
-    trend_budget: Optional[int] = Field(default=1, description="Max number of trend-forward elements.")
+    style_brief: str = Field(description="1-3 sentences: editorial brief for this request.")
+    constraints_summary: List[str] = Field(default_factory=list, description="Non-negotiables.")
+    editorial_nos: List[str] = Field(default_factory=list, description="Hard taste no's.")
+    hero_strategy: str = Field(description="How to create a single clear point of view.")
+    trend_budget: int = Field(default=1, ge=0, le=3)

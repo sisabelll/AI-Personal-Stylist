@@ -16,7 +16,7 @@ class StyleStylist:
         situational_signals: dict,
         user_query: str,
         current_outfit: list = None,
-        style_program: Optional[Dict[str, Any]] = None,
+        style_program=None,
     ) -> OutfitRecommendation:
         """
         Returns a validated OutfitRecommendation Pydantic object.
@@ -223,6 +223,19 @@ class StyleStylist:
             [base_block, program_block, inspiration_block, context_block, edit_block, physics_block]
         ).strip()
 
+        editor_plan = situational_signals.get("editor_plan")
+
+        if editor_plan:
+            system_prompt += f"""
+            EDITOR REVISION REQUEST (HIGH PRIORITY)
+            You MUST revise the outfit using this plan.
+            - Keep changes minimal.
+            - Apply at most the requested edits.
+
+            PLAN:
+            {json.dumps(editor_plan, ensure_ascii=False)}
+            """
+            
         # TODO: Refine outfit categories. For example, is outerwear necessary in all contexts? 
 
         # 3. CALL THE WRAPPER
@@ -353,6 +366,7 @@ class StyleStylist:
                 final_list.append(old_item)
         return final_list
     
+    # TODO: fix this to be more accurate
     def _apply_attribute_corrections(self, outfit_items: list, attribute_corrections: list) -> list:
         """
         Mutates item_name/search_query for locked items to match user clarifications,

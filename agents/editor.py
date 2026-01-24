@@ -1,6 +1,51 @@
 import json
 from core.config import Config
+from core.schemas import OutfitRecommendation, OutfitCritique
+from core.client import OpenAIClient
 
+class EditorAgent:
+    def __init__(self, client: OpenAIClient):
+        self.client = client
+
+    def critique(self, outfit: OutfitRecommendation, user_profile: dict, situational_signals: dict) -> OutfitCritique:
+        system_prompt = f"""
+        You are a ruthless fashion editor. Your job is to upgrade outfits from “works” (7/10) to “editorial” (9/10)
+        without changing everything.
+
+        Return STRICT JSON matching OutfitCritique. No extra keys.
+
+        TASTE BENCHMARKS:
+        - 7/10: coherent but forgettable; no point of view; could be swapped with generic mall basics.
+        - 9/10: one clear hero decision + restraint + intentional finishing.
+        - If you cannot name a hero, verdict MUST be "revise" and score <= 7.
+
+        RULES:
+        - Propose MAX 2 actions.
+        - Prefer the smallest possible changes.
+        - Respect the user's color season and body essence.
+        - If mid-calf boots/Uggs are involved, require a proportion/hem strategy.
+
+        USER PROFILE:
+        {json.dumps({
+        "color_season": user_profile.get("color_season") or user_profile.get("personal_color"),
+        "body_essence": user_profile.get("body_style_essence"),
+        "preferences": (user_profile.get("preferences") or {}),
+        }, ensure_ascii=False)}
+
+        SITUATIONAL SIGNALS:
+        {json.dumps(situational_signals, ensure_ascii=False)}
+        """.strip()
+
+        return self.client.call_api(
+            model=Config.OPENAI_MODEL_SMART,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": outfit.model_dump_json()},
+            ],
+            temperature=0.2,
+            response_model=OutfitCritique,
+        )
+    
 class OutfitCritic:
     def __init__(self, client):
         self.client = client
