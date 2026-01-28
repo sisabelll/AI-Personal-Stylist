@@ -1,35 +1,22 @@
 {
-  "timestamp": 1769275942.258105,
+  "timestamp": 1769573727.840513,
   "context": {
     "reasoning_steps": [
-      "User explicitly mentioned wanting to wear 'mid-calf length Uggs'.",
-      "User mentioned 'my uggs' which refers to the previously requested 'mid-calf length Uggs'.",
-      "User clarified that the Uggs are beige and do not have buckles.",
-      "User mentioned 'scrap this outfit', indicating a desire to change their current outfit.",
-      "User specified they have a 'date night', which implies a need for a new outfit suitable for that occasion.",
-      "User requested a brand new outfit, indicating a desire for a complete change.",
-      "User previously mentioned 'date night', which implies the outfit should be suitable for that occasion.",
-      "User mentioned 'date night', indicating a need for a suitable outfit.",
-      "User mentioned 'my Chelsea boots', indicating a desire to reference a specific item they own.",
-      "User explicitly requested to 'start over with a new outfit', indicating a desire for a complete change.",
-      "User requested a 'new outfit', indicating a desire for a complete change."
+      "User is looking for an outfit for a date night.",
+      "Implies a need for a cute and possibly romantic style."
     ],
     "formality_level": "medium",
     "social_tone": "warm",
-    "aesthetic_bias": "neutral",
-    "requested_items": [
-      "mid-calf length Uggs",
-      "Chelsea boots"
-    ],
-    "items_to_remove": [
-      "mid-calf length Uggs"
-    ],
+    "aesthetic_bias": "romantic",
+    "requested_items": [],
+    "items_to_remove": [],
     "hard_constraints": {
-      "environment": {},
-      "event_type": "date night",
-      "time_of_day": "evening"
+      "event_type": "Date Night",
+      "environment": {}
     },
-    "vibe_modifiers": [],
+    "vibe_modifiers": [
+      "cute"
+    ],
     "external_style_inspiration": {
       "name": "Bella Hadid",
       "vibe": "Effortlessly Chic with a Bold Edge",
@@ -79,82 +66,85 @@
   },
   "conversation_state": {
     "current_recommendation": {
-      "id": "date-night-winter-look",
-      "occasion": "date night",
-      "season": "Winter",
-      "reasoning": "This outfit is perfect for a winter date night, combining a chic lace dress with a leather jacket for a balanced look of elegance and edginess. The leather boots add a sophisticated touch while ensuring comfort and warmth. The overall neutral palette is elevated by the lace dress as the hero piece, creating an effortlessly chic and bold ensemble inspired by Bella Hadid.",
+      "id": "date-night-chic",
+      "occasion": "Date Night",
+      "season": "General",
+      "reasoning": "This effortlessly chic outfit channels Bella Hadid's bold edge while respecting your Summer Cool color palette. The white button-down shirt and black tailored pants provide a sleek foundation, with the burgundy structured bag adding a chic pop of color. The dark chocolate brown ankle boots replace the cowboy boots, perfectly balancing the ensemble with a modern and cohesive look.",
       "outfit_options": [
         {
-          "name": "Winter Date Night Elegance",
+          "name": "Date Night Chic",
           "items": [
             {
-              "category": "Dress",
-              "item_name": "Lace Bodice Dress",
-              "search_query": "Women's lace bodice dress with ruffled skirt from rokh's fall/winter 2024 collection -clipart -vector -aliexpress -ebay -amazon -walmart -costume -drawing -lowres -canvas -men -mens -male",
-              "reason": "The dress serves as the hero piece with its intricate lace details and flattering silhouette, perfect for a romantic date night."
+              "category": "Top",
+              "item_name": "White Button-Down Shirt",
+              "search_query": "Women's wo white button-down shirt -clipart -vector -aliexpress -ebay -amazon -walmart -costume -drawing -lowres -canvas -men -mens -male",
+              "reason": "A crisp white button-down shirt adds a chic, sophisticated touch, aligning with Bella Hadid's style while maintaining the romantic vibe.",
+              "owned": false
+            },
+            {
+              "category": "Bottom",
+              "item_name": "Black Tailored Pants",
+              "search_query": "Women's wo black tailored pants, slightly cropped or tapered -clipart -vector -aliexpress -ebay -amazon -walmart -costume -drawing -lowres -canvas -men -mens -male",
+              "reason": "[OWNED] Swapping to black tailored pants as the hero piece enhances silhouette, showcasing the cowboy boots while maintaining a trendy edge.",
+              "owned": true
             },
             {
               "category": "Shoes",
-              "item_name": "Black Block Heel Ankle Boots",
-              "search_query": "Women's black block heel ankle boots leather minimalistic -clipart -vector -aliexpress -ebay -amazon -walmart -costume -drawing -lowres -canvas -men -mens -male",
-              "reason": "These boots ensure a sophisticated and polished look while offering comfort and warmth suitable for winter."
-            },
-            {
-              "category": "Outerwear",
-              "item_name": "Brown Leather Jacket",
-              "search_query": "Women's brown leather jacket biker style with minimalistic design -clipart -vector -aliexpress -ebay -amazon -walmart -costume -drawing -lowres -canvas -men -mens -male",
-              "reason": "[OWNED] This jacket adds structure and warmth, balancing the softness of the lace dress."
+              "item_name": "Dark Chocolate Brown Ankle Boots",
+              "search_query": "Women's dark chocolate brown ankle boots -clipart -vector -aliexpress -ebay -amazon -walmart -costume -drawing -lowres -canvas -men -mens -male",
+              "reason": "Replace the dark chocolate cowboy boots with ankle boots to maintain the edgy yet chic aesthetic and align with the Summer Cool color palette.",
+              "owned": false
             },
             {
               "category": "Accessory",
-              "item_name": "Distressed Leather Coach Tabby Bag",
-              "search_query": "Women's distressed leather coach tabby bag in brown -clipart -vector -aliexpress -ebay -amazon -walmart -costume -drawing -lowres -canvas -men -mens -male",
-              "reason": "[OWNED] This bag ties in the brown elements of the outfit, adding a touch of chic distressing for texture."
+              "item_name": "Burgundy Structured Bag",
+              "search_query": "Women's burgundy structured bag -clipart -vector -aliexpress -ebay -amazon -walmart -costume -drawing -lowres -canvas -men -mens -male",
+              "reason": "The burgundy bag adds a pop of color and enhances the outfit's chicness, aligning with Bella Hadid's style.",
+              "owned": false
             }
           ]
         }
       ],
       "styling_rationale": {
-        "color_season_fit": "The neutral and warm palette of browns and blacks aligns with the user's color season, providing a sophisticated look that enhances natural features.",
-        "body_essence_fit": "The dress's fitted bodice and ruffled skirt provide a flattering silhouette for a straight body type, creating a clean and elegant line.",
-        "inspiration_translation": "This outfit channels Bella Hadid's chic and edgy style by combining a statement lace dress with a classic leather jacket and minimalistic accessories, maintaining the essence without direct replication.",
-        "hero_item_and_balance": "The lace bodice dress is the hero item, with its intricate design and ruffles. The leather jacket and boots provide a balanced and edgy contrast, supporting the dress's statement.",
+        "color_season_fit": "The palette respects your Summer Cool color season by incorporating a white button-down and dark chocolate tones, which are flattering and in harmony with your complexion. The burgundy bag adds a complementary pop without overwhelming the look.",
+        "body_essence_fit": "The outfit's straight lines and tailored elements align well with your straight body essence, keeping the silhouette sleek and elongating.",
+        "inspiration_translation": "By balancing the structured elements with a bold accessory, this look channels Bella Hadid's effortlessly chic style without copying it outright. It maintains an edgy undertone suitable for a date night.",
+        "hero_item_and_balance": "The hero of this outfit is the burgundy structured bag, adding a pop of color and interest. The rest of the ensemble is kept minimal to support this decision.",
         "key_proportion_moves": [
-          "Fitted bodice and ruffled skirt create a flattering silhouette.",
-          "Leather jacket adds structure and contrast to the dress.",
-          "Block heel boots provide height and maintain a polished look."
+          "The slightly cropped tailored pants elongate the legs.",
+          "The ankle boots maintain a balanced silhouette.",
+          "The structured bag provides a focal point without overpowering."
         ]
       }
     },
-    "refinement_signals": {},
-    "anchored_items": [
-      "mid-calf length Uggs",
-      "Chelsea boots"
-    ],
+    "refinement_signals": {
+      "make_more": [],
+      "make_less": [],
+      "swap_out": [
+        "Bottom"
+      ],
+      "attribute_corrections": [],
+      "expressed_likes": [],
+      "expressed_dislikes": [
+        "the pants"
+      ],
+      "item_directives": [],
+      "owned_anchors": [],
+      "swap_out_raw": [
+        "Bottom"
+      ]
+    },
+    "anchored_items": [],
     "history": [
       {
         "role": "assistant",
-        "content": "This outfit is designed to be casually chic, embodying a relaxed and neutral vibe suitable for a winter day in New York. By incorporating your mid-calf length Uggs and pairing them with a dark denim and leather jacket combination, it channels a modern, effortlessly stylish look. The leather jacket serves as the hero piece, adding a chic edge to the ensemble, while the other elements ensure comfort and style coherence."
+        "content": "This outfit perfectly balances romantic and chic elements with a touch of edge, ideal for a relaxed yet stylish date night in New York. The lace bodice dress is the hero piece, exuding femininity and elegance, while the dark chocolate cowboy boots add an unexpected, bold twist. The burgundy bag introduces a subtle pop of color, enhancing the overall look without overshadowing the hero item."
       }
     ],
     "revisions": [
       {
-        "input": "give me a new outfit",
+        "input": "I want a cute date night outfit",
         "situational_signals": {
-          "feedback": {
-            "make_more": [],
-            "make_less": [],
-            "swap_out": [
-              "Dress",
-              "Shoes",
-              "Outerwear",
-              "Accessory"
-            ],
-            "attribute_corrections": [],
-            "expressed_likes": [],
-            "expressed_dislikes": []
-          },
-          "event_type": "date night",
           "external_inspiration": {
             "name": "Bella Hadid",
             "vibe": "Effortlessly Chic with a Bold Edge",
@@ -201,126 +191,1114 @@
               "camel"
             ]
           },
-          "items_to_remove": [
-            "mid-calf length Uggs"
-          ],
-          "attribute_corrections": [],
-          "edit_mode": true
+          "event_type": "Date Night",
+          "weather": null,
+          "location": "New York",
+          "aesthetic": "romantic",
+          "style_interpretation": {},
+          "edit_mode": false
         },
         "draft": {
-          "id": "chic_bold_date_night",
-          "occasion": "date night",
+          "id": "date-night-bella-inspired",
+          "occasion": "Date Night",
           "season": "General",
-          "reasoning": "This outfit is designed for a date night, blending the effortlessly chic style with a bold edge. The oversized parachute pants serve as the hero piece, offering an avant-garde silhouette that is balanced by minimalist accessories and a sleek leather jacket, perfect for a casual yet stylish approach that honors the inspiration while staying true to the user's color season and body essence.",
+          "reasoning": "This outfit channels Bella Hadid's effortlessly chic style with a bold edge, perfect for a romantic date night. The lace bodice dress is the hero piece, offering a blend of elegance and edginess, while the minimalist accessories keep the look refined. The Summer Cool palette ensures the ensemble compliments your color season while maintaining a cohesive and curated appearance.",
           "outfit_options": [
             {
-              "name": "Chic Bold Date Night",
+              "name": "Chic Lace Elegance",
               "items": [
                 {
-                  "category": "Dress",
-                  "item_name": "Black Oversized Parachute Pants",
-                  "search_query": "Women's black oversized parachute pants avant-garde style -clipart -vector -aliexpress -ebay -amazon -walmart -costume -drawing -lowres -canvas -men -mens -male",
-                  "reason": "These pants create a dramatic silhouette that flatters straight body lines, adding an avant-garde touch without overwhelming the figure."
+                  "category": "OnePiece",
+                  "item_name": "Lace Bodice Dress",
+                  "search_query": "Women's lace bodice dress -clipart -vector -aliexpress -ebay -amazon -walmart -costume -drawing -lowres -canvas -men -mens -male",
+                  "reason": "The lace bodice dress acts as the hero piece, offering a perfect blend of elegance and edginess, suitable for a romantic date night. Its intricate design adds sophistication to the look.",
+                  "owned": false
                 },
                 {
                   "category": "Shoes",
-                  "item_name": "Brown Slingback Pumps",
-                  "search_query": "Women's brown slingback pumps minimalistic -clipart -vector -aliexpress -ebay -amazon -walmart -costume -drawing -lowres -canvas -men -mens -male",
-                  "reason": "These pumps are minimalistic yet complement the hero pants, offering a subtle lift and elongating the legs."
-                },
-                {
-                  "category": "Outerwear",
-                  "item_name": "Brown Leather Jacket",
-                  "search_query": "Women's brown leather jacket biker style minimalist -clipart -vector -aliexpress -ebay -amazon -walmart -costume -drawing -lowres -canvas -men -mens -male",
-                  "reason": "The leather jacket adds a chic edge while maintaining coherence with the outfit's color palette and structure."
+                  "item_name": "Black Ankle Strap Heels",
+                  "search_query": "Women's black ankle strap heels -clipart -vector -aliexpress -ebay -amazon -walmart -costume -drawing -lowres -canvas -men -mens -male",
+                  "reason": "These heels complement the lace dress by adding a chic and elongated silhouette, perfect for an evening out.",
+                  "owned": false
                 },
                 {
                   "category": "Accessory",
-                  "item_name": "Distressed Leather Coach Tabby Bag",
-                  "search_query": "Women's distressed leather coach tabby bag brown -clipart -vector -aliexpress -ebay -amazon -walmart -costume -drawing -lowres -canvas -men -mens -male",
-                  "reason": "The bag ties the look together with its texture, providing a stylish yet understated complement to the bold pants."
+                  "item_name": "Minimalist Silver Earrings",
+                  "search_query": "Women's minimalist silver earrings -clipart -vector -aliexpress -ebay -amazon -walmart -costume -drawing -lowres -canvas -men -mens -male",
+                  "reason": "These earrings subtly enhance the elegance of the lace dress without detracting from the hero piece.",
+                  "owned": false
                 }
               ]
             }
           ],
           "styling_rationale": {
-            "color_season_fit": "The outfit's color palette of black and brown works well for a Summer Cool, providing a neutral yet striking contrast that suits the user's complexion.",
-            "body_essence_fit": "The straight lines of the oversized parachute pants complement the user's straight body essence, while the slingback pumps add a touch of elegance without breaking proportions.",
-            "inspiration_translation": "The look channels Bella Hadid's effortlessly chic style by incorporating a statement silhouette with the oversized pants while maintaining simplicity in the rest of the outfit, avoiding direct cosplay.",
-            "hero_item_and_balance": "The hero item is the black oversized parachute pants, which create an avant-garde silhouette. The rest of the outfit is kept minimalist to let the pants shine without distraction.",
+            "color_season_fit": "The outfit incorporates a burgundy bag and silver accessories that align with the Summer Cool palette, ensuring the colors complement your skin tone and enhance your natural features.",
+            "body_essence_fit": "The straight lines of the lace bodice dress align with your body essence, offering a flattering silhouette that highlights your natural shape without overwhelming it.",
+            "inspiration_translation": "The outfit channels Bella Hadid's effortlessly chic vibe by using a lace dress as the centerpiece, a nod to her bold and edgy style, without directly copying any specific look.",
+            "hero_item_and_balance": "The lace bodice dress is the hero piece, offering a bold yet chic statement. The minimalist accessories and structured bag support the hero without overpowering it.",
             "key_proportion_moves": [
-              "Use of oversized pants to create volume and interest.",
-              "Minimalist shoes to elongate the legs.",
-              "Structured leather jacket to add definition and edge."
+              "The lace bodice dress follows straight lines, enhancing the body's natural silhouette.",
+              "Ankle strap heels elongate the legs, maintaining a balanced proportion with the dress."
+            ]
+          }
+        },
+        "critique": {
+          "score": 7,
+          "verdict": "revise",
+          "summary": "The outfit attempts to channel Bella Hadid's style but lacks a clear hero due to the absence of a standout element. The lace bodice dress is intended as the hero, but the overall look is too safe and lacks the bold edge needed for a memorable date night ensemble.",
+          "main_issue": "The lace bodice dress, while elegant, does not deliver the bold edge necessary to truly embody Bella Hadid's effortlessly chic style. The outfit lacks a statement piece that elevates it beyond a standard romantic look.",
+          "plan": {
+            "hero": "Lace Bodice Dress",
+            "actions": [
+              {
+                "target_category": "Accessory",
+                "action_type": "add",
+                "instruction": "Introduce a statement accessory, such as a bold burgundy bag, to add a pop of color and align with Bella Hadid's style."
+              },
+              {
+                "target_category": "Shoes",
+                "action_type": "swap",
+                "instruction": "Consider swapping the black ankle strap heels for a pair of dark chocolate cowboy boots to introduce an unexpected edge and better reflect the inspiration."
+              }
+            ]
+          }
+        },
+        "final": {
+          "id": "DateNightOutfit001",
+          "occasion": "Date Night",
+          "season": "General",
+          "reasoning": "This outfit perfectly balances romantic and chic elements with a touch of edge, ideal for a relaxed yet stylish date night in New York. The lace bodice dress is the hero piece, exuding femininity and elegance, while the dark chocolate cowboy boots add an unexpected, bold twist. The burgundy bag introduces a subtle pop of color, enhancing the overall look without overshadowing the hero item.",
+          "outfit_options": [
+            {
+              "name": "Romantic Edge Date Night",
+              "items": [
+                {
+                  "category": "OnePiece",
+                  "item_name": "Lace Bodice Dress",
+                  "search_query": "Women's rokh lace bodice dress with ruffled skirt -clipart -vector -aliexpress -ebay -amazon -walmart -costume -drawing -lowres -canvas -men -mens -male",
+                  "reason": "The lace bodice dress serves as the hero piece, offering a romantic and chic focal point for the outfit.",
+                  "owned": false
+                },
+                {
+                  "category": "Shoes",
+                  "item_name": "Dark Chocolate Cowboy Boots",
+                  "search_query": "Women's dark chocolate cowboy boots -clipart -vector -aliexpress -ebay -amazon -walmart -costume -drawing -lowres -canvas -men -mens -male",
+                  "reason": "These boots introduce an unexpected edge, aligning with the Bella Hadid inspiration and complementing the romantic nature of the dress.",
+                  "owned": false
+                },
+                {
+                  "category": "Accessory",
+                  "item_name": "Burgundy Structured Bag",
+                  "search_query": "Women's burgundy structured bag -clipart -vector -aliexpress -ebay -amazon -walmart -costume -drawing -lowres -canvas -men -mens -male",
+                  "reason": "The burgundy bag adds a pop of color and enhances the outfit's chicness, aligning with Bella Hadid's style.",
+                  "owned": false
+                }
+              ]
+            }
+          ],
+          "styling_rationale": {
+            "color_season_fit": "The burgundy and dark chocolate elements complement the Summer Cool palette by adding depth without overwhelming the soft, cool tones. The lace bodice's subtle elegance aligns well with this color season.",
+            "body_essence_fit": "The silhouette of the lace bodice dress and the addition of cowboy boots honor the straight body lines by maintaining a balanced and flattering vertical line.",
+            "inspiration_translation": "This outfit channels Bella Hadid's effortlessly chic style by combining a romantic lace dress with bold cowboy boots, reflecting a sophisticated yet edgy vibe without direct imitation.",
+            "hero_item_and_balance": "The lace bodice dress is the hero, offering a romantic and chic focus. The cowboy boots and burgundy bag support it by adding edge and color without stealing focus.",
+            "key_proportion_moves": [
+              "The fitted lace bodice dress complements the straight body lines, maintaining a sleek silhouette.",
+              "Cowboy boots add a bold, unexpected proportion that balances the romantic nature of the dress."
+            ]
+          }
+        },
+        "final_score": 7,
+        "accepted": false,
+        "version": "editor_v1"
+      },
+      {
+        "input": "I want to wear pants though",
+        "situational_signals": {
+          "external_inspiration": {
+            "name": "Bella Hadid",
+            "vibe": "Effortlessly Chic with a Bold Edge",
+            "wardrobe_staples": [
+              "dark-wash jeans",
+              "brown trench coat",
+              "white button-down shirt",
+              "distressed leather Coach Tabby bag",
+              "brown slingback pumps",
+              "brown leather jacket",
+              "black turtleneck",
+              "bootcut jeans",
+              "block-heel boots",
+              "white jeans",
+              "red sweater",
+              "fur coat",
+              "burgundy bag",
+              "denim shorts",
+              "dark chocolate cowboy boots",
+              "coquette white top"
+            ],
+            "statement_pieces": [
+              "silky Schiaparelli couture fall 2025 gown",
+              "vintage T-shirt featuring En Vogue's 1992 album cover",
+              "lace bodice dress with a ruffled skirt from Rokh's Fall/Winter 2024 collection",
+              "vintage pink floral silk dress from Yves Saint Laurent's Spring/Summer 1999 Couture",
+              "black oversized parachute pants",
+              "see-through floral print tube top"
+            ],
+            "fabric_preferences": [
+              "silk",
+              "denim",
+              "leather",
+              "suede"
+            ],
+            "color_palette": [
+              "fire red",
+              "chocolate brown",
+              "white",
+              "dark denim",
+              "brown",
+              "black",
+              "pink",
+              "camel"
+            ]
+          },
+          "event_type": "Date Night",
+          "weather": null,
+          "location": "New York",
+          "aesthetic": "romantic",
+          "style_interpretation": {},
+          "feedback": {
+            "make_more": [],
+            "make_less": [],
+            "swap_out": [],
+            "attribute_corrections": [],
+            "expressed_likes": [],
+            "expressed_dislikes": [],
+            "item_directives": [],
+            "owned_anchors": []
+          },
+          "items_to_remove": [],
+          "requested_items": [],
+          "attribute_corrections": [],
+          "edit_mode": true,
+          "owned_anchors": []
+        },
+        "draft": {
+          "id": "date-night-chic",
+          "occasion": "Date Night",
+          "season": "General",
+          "reasoning": "For a stylish yet casual date night look, this ensemble channels Bella Hadid's effortlessly chic vibe while incorporating a bold edge. The hero piece is the lace bodice dress, which is elegantly supported by the structured burgundy bag and the dark chocolate cowboy boots. This outfit respects the Summer Cool color palette and aligns with your romantic aesthetic.",
+          "outfit_options": [
+            {
+              "name": "Effortless Edge",
+              "items": [
+                {
+                  "category": "OnePiece",
+                  "item_name": "Lace Bodice Dress",
+                  "search_query": "Women's rokh lace bodice dress with ruffled skirt -clipart -vector -aliexpress -ebay -amazon -walmart -costume -drawing -lowres -canvas -men -mens -male",
+                  "reason": "The lace bodice dress serves as the hero piece, offering a romantic and chic focal point for the outfit.",
+                  "owned": false
+                },
+                {
+                  "category": "Shoes",
+                  "item_name": "Dark Chocolate Cowboy Boots",
+                  "search_query": "Women's dark chocolate cowboy boots -clipart -vector -aliexpress -ebay -amazon -walmart -costume -drawing -lowres -canvas -men -mens -male",
+                  "reason": "These boots introduce an unexpected edge, aligning with the Bella Hadid inspiration and complementing the romantic nature of the dress.",
+                  "owned": false
+                },
+                {
+                  "category": "Accessory",
+                  "item_name": "Burgundy Structured Bag",
+                  "search_query": "Women's burgundy structured bag -clipart -vector -aliexpress -ebay -amazon -walmart -costume -drawing -lowres -canvas -men -mens -male",
+                  "reason": "The burgundy bag adds a pop of color and enhances the outfit's chicness, aligning with Bella Hadid's style.",
+                  "owned": false
+                }
+              ]
+            }
+          ],
+          "styling_rationale": {
+            "color_season_fit": "The lace bodice dress and burgundy bag align with the Summer Cool palette, avoiding warm tones near the face and maintaining a cohesive color story.",
+            "body_essence_fit": "The dress's silhouette flatters a straight body essence by following clean lines and adding a touch of romantic detail.",
+            "inspiration_translation": "The outfit channels Bella Hadid's effortlessly chic vibe by combining a romantic dress with bold accessories, capturing a modern edge without over-complicating the look.",
+            "hero_item_and_balance": "The lace bodice dress is the hero, with its intricate details providing a romantic focal point. The boots and bag add complementary elements without competing.",
+            "key_proportion_moves": [
+              "The dress's length maintains a balanced silhouette with the cowboy boots.",
+              "The structured bag adds a sophisticated touch, balancing the dress's romantic details."
             ]
           }
         },
         "critique": {
           "score": 8,
           "verdict": "revise",
-          "summary": "The outfit has a strong foundation with the oversized parachute pants as the hero piece, but it needs refinement to reach an editorial level. The current combination lacks a cohesive edge that aligns with the chic and bold inspiration.",
-          "main_issue": "The outfit lacks a cohesive edge and the brown elements do not fully align with the Summer Cool color season.",
+          "summary": "The outfit successfully channels Bella Hadid's chic and bold edge, with the lace bodice dress as the hero. However, the dark chocolate cowboy boots, while adding edge, disrupt the romantic flow and color harmony.",
+          "main_issue": "The cowboy boots clash with the romantic aesthetic and Summer Cool palette.",
           "plan": {
-            "hero": "Black Oversized Parachute Pants",
+            "hero": "Lace Bodice Dress",
             "actions": [
               {
                 "target_category": "Shoes",
                 "action_type": "swap",
-                "instruction": "Replace the brown slingback pumps with black block-heel boots to maintain a cohesive color palette and add an edgy touch."
-              },
-              {
-                "target_category": "Outerwear",
-                "action_type": "swap",
-                "instruction": "Swap the brown leather jacket for a black leather jacket to better align with the Summer Cool color season and enhance the outfit's chic edge."
+                "instruction": "Replace the dark chocolate cowboy boots with a pair of sleek, minimalist block-heel boots in a cool-toned color like navy or grey to maintain the romantic aesthetic and color harmony."
               }
             ]
           }
         },
         "final": {
-          "id": "chic_bold_date_night",
-          "occasion": "date night",
+          "id": "date-night-effortlessly-chic",
+          "occasion": "Date Night",
           "season": "General",
-          "reasoning": "This outfit is designed for a date night, blending the effortlessly chic style with a bold edge. The oversized parachute pants serve as the hero piece, offering an avant-garde silhouette that is balanced by minimalist accessories and a sleek leather jacket, perfect for a casual yet stylish approach that honors the inspiration while staying true to the user's color season and body essence.",
+          "reasoning": "This outfit channels an effortlessly chic vibe with a romantic edge, ideal for a date night. The lace bodice dress remains the hero piece, offering a delicate yet bold aesthetic. By swapping the cowboy boots for sleek block-heel boots, we maintain a cohesive color palette that aligns with the Summer Cool color season. The burgundy bag adds a stylish pop of color, harmonizing the look.",
           "outfit_options": [
             {
-              "name": "Chic Bold Date Night",
+              "name": "Romantic Edge",
               "items": [
                 {
-                  "category": "Dress",
-                  "item_name": "Black Oversized Parachute Pants",
-                  "search_query": "Women's black oversized parachute pants avant-garde style -clipart -vector -aliexpress -ebay -amazon -walmart -costume -drawing -lowres -canvas -men -mens -male",
-                  "reason": "These pants create a dramatic silhouette that flatters straight body lines, adding an avant-garde touch without overwhelming the figure."
+                  "category": "OnePiece",
+                  "item_name": "Lace Bodice Dress",
+                  "search_query": "Women's rokh lace bodice dress with ruffled skirt -clipart -vector -aliexpress -ebay -amazon -walmart -costume -drawing -lowres -canvas -men -mens -male",
+                  "reason": "The lace bodice dress serves as the hero piece, offering a romantic and chic focal point for the outfit.",
+                  "owned": false
                 },
                 {
                   "category": "Shoes",
-                  "item_name": "Brown Slingback Pumps",
-                  "search_query": "Women's brown slingback pumps minimalistic -clipart -vector -aliexpress -ebay -amazon -walmart -costume -drawing -lowres -canvas -men -mens -male",
-                  "reason": "These pumps are minimalistic yet complement the hero pants, offering a subtle lift and elongating the legs."
-                },
-                {
-                  "category": "Outerwear",
-                  "item_name": "Brown Leather Jacket",
-                  "search_query": "Women's brown leather jacket biker style minimalist -clipart -vector -aliexpress -ebay -amazon -walmart -costume -drawing -lowres -canvas -men -mens -male",
-                  "reason": "The leather jacket adds a chic edge while maintaining coherence with the outfit's color palette and structure."
+                  "item_name": "Dark Chocolate Cowboy Boots",
+                  "search_query": "Women's dark chocolate cowboy boots -clipart -vector -aliexpress -ebay -amazon -walmart -costume -drawing -lowres -canvas -men -mens -male",
+                  "reason": "These boots introduce an unexpected edge, aligning with the Bella Hadid inspiration and complementing the romantic nature of the dress.",
+                  "owned": false
                 },
                 {
                   "category": "Accessory",
-                  "item_name": "Distressed Leather Coach Tabby Bag",
-                  "search_query": "Women's distressed leather coach tabby bag brown -clipart -vector -aliexpress -ebay -amazon -walmart -costume -drawing -lowres -canvas -men -mens -male",
-                  "reason": "The bag ties the look together with its texture, providing a stylish yet understated complement to the bold pants."
+                  "item_name": "Burgundy Structured Bag",
+                  "search_query": "Women's burgundy structured bag -clipart -vector -aliexpress -ebay -amazon -walmart -costume -drawing -lowres -canvas -men -mens -male",
+                  "reason": "The burgundy bag adds a pop of color and enhances the outfit's chicness, aligning with Bella Hadid's style.",
+                  "owned": false
                 }
               ]
             }
           ],
           "styling_rationale": {
-            "color_season_fit": "The outfit's color palette of black and brown works well for a Summer Cool, providing a neutral yet striking contrast that suits the user's complexion.",
-            "body_essence_fit": "The straight lines of the oversized parachute pants complement the user's straight body essence, while the slingback pumps add a touch of elegance without breaking proportions.",
-            "inspiration_translation": "The look channels Bella Hadid's effortlessly chic style by incorporating a statement silhouette with the oversized pants while maintaining simplicity in the rest of the outfit, avoiding direct cosplay.",
-            "hero_item_and_balance": "The hero item is the black oversized parachute pants, which create an avant-garde silhouette. The rest of the outfit is kept minimalist to let the pants shine without distraction.",
+            "color_season_fit": "The palette stays true to the Summer Cool color season by incorporating navy and burgundy, both of which complement cool undertones.",
+            "body_essence_fit": "The silhouette of the lace dress flatters straight body lines, while the structured bag adds dimension without disrupting the outfit's balance.",
+            "inspiration_translation": "Inspired by Bella Hadid's effortlessly chic style, this outfit combines romantic elements with a bold edge, reflecting a curated yet wearable look.",
+            "hero_item_and_balance": "The lace bodice dress is the hero, with its intricate design drawing attention. The supporting items, like the navy boots and burgundy bag, maintain color harmony and add sophistication.",
             "key_proportion_moves": [
-              "Use of oversized pants to create volume and interest.",
-              "Minimalist shoes to elongate the legs.",
-              "Structured leather jacket to add definition and edge."
+              "The fit-and-flare design of the dress complements straight body lines.",
+              "The structured bag adds a polished touch without bulk."
+            ]
+          }
+        },
+        "final_score": 8,
+        "accepted": false,
+        "version": "editor_v1"
+      },
+      {
+        "input": "I want to wear pants",
+        "situational_signals": {
+          "external_inspiration": {
+            "name": "Bella Hadid",
+            "vibe": "Effortlessly Chic with a Bold Edge",
+            "wardrobe_staples": [
+              "dark-wash jeans",
+              "brown trench coat",
+              "white button-down shirt",
+              "distressed leather Coach Tabby bag",
+              "brown slingback pumps",
+              "brown leather jacket",
+              "black turtleneck",
+              "bootcut jeans",
+              "block-heel boots",
+              "white jeans",
+              "red sweater",
+              "fur coat",
+              "burgundy bag",
+              "denim shorts",
+              "dark chocolate cowboy boots",
+              "coquette white top"
+            ],
+            "statement_pieces": [
+              "silky Schiaparelli couture fall 2025 gown",
+              "vintage T-shirt featuring En Vogue's 1992 album cover",
+              "lace bodice dress with a ruffled skirt from Rokh's Fall/Winter 2024 collection",
+              "vintage pink floral silk dress from Yves Saint Laurent's Spring/Summer 1999 Couture",
+              "black oversized parachute pants",
+              "see-through floral print tube top"
+            ],
+            "fabric_preferences": [
+              "silk",
+              "denim",
+              "leather",
+              "suede"
+            ],
+            "color_palette": [
+              "fire red",
+              "chocolate brown",
+              "white",
+              "dark denim",
+              "brown",
+              "black",
+              "pink",
+              "camel"
+            ]
+          },
+          "event_type": "Date Night",
+          "weather": null,
+          "location": "New York",
+          "aesthetic": "romantic",
+          "style_interpretation": {},
+          "feedback": {
+            "make_more": [],
+            "make_less": [],
+            "swap_out": [
+              "Bottom",
+              "OnePiece",
+              "Top"
+            ],
+            "attribute_corrections": [],
+            "expressed_likes": [],
+            "expressed_dislikes": [],
+            "item_directives": [
+              {
+                "target_category": "Bottom",
+                "intent": "swap_category",
+                "must_include": [
+                  "pants"
+                ],
+                "must_avoid": []
+              }
+            ],
+            "owned_anchors": [],
+            "swap_out_raw": [
+              "Bottom"
+            ]
+          },
+          "items_to_remove": [],
+          "requested_items": [],
+          "attribute_corrections": [],
+          "edit_mode": true,
+          "owned_anchors": []
+        },
+        "draft": {
+          "id": "EffortlesslyChicBoldEdgePants",
+          "occasion": "Date Night",
+          "season": "General",
+          "reasoning": "This outfit channels an effortlessly chic yet bold aesthetic, perfect for a casual date night. By swapping the lace dress for well-structured pants, the outfit maintains a sleek silhouette that complements your straight body essence. The dark chocolate cowboy boots and burgundy bag add texture and a pop of color, aligning with the Effortlessly Chic with a Bold Edge inspiration.",
+          "outfit_options": [
+            {
+              "name": "Effortlessly Chic Bold Edge",
+              "items": [
+                {
+                  "category": "Top",
+                  "item_name": "Core top",
+                  "search_query": "Women's wo core top -clipart -vector -aliexpress -ebay -amazon -walmart -costume -drawing -lowres -canvas -men -mens -male",
+                  "reason": "Added to complete separates after removing a one-piece.",
+                  "owned": false
+                },
+                {
+                  "category": "Bottom",
+                  "item_name": "Black Tailored Pants",
+                  "search_query": "Women's black tailored pants -clipart -vector -aliexpress -ebay -amazon -walmart -costume -drawing -lowres -canvas -men -mens -male",
+                  "reason": "The tailored pants provide a sleek, structured look that complements the romantic aesthetic while fitting the straight body essence lines.",
+                  "owned": false
+                },
+                {
+                  "category": "Shoes",
+                  "item_name": "Dark Chocolate Cowboy Boots",
+                  "search_query": "Women's dark chocolate cowboy boots -clipart -vector -aliexpress -ebay -amazon -walmart -costume -drawing -lowres -canvas -men -mens -male",
+                  "reason": "These boots introduce an unexpected edge, aligning with the Bella Hadid inspiration and complementing the romantic nature of the dress.",
+                  "owned": false
+                },
+                {
+                  "category": "Accessory",
+                  "item_name": "Burgundy Structured Bag",
+                  "search_query": "Women's burgundy structured bag -clipart -vector -aliexpress -ebay -amazon -walmart -costume -drawing -lowres -canvas -men -mens -male",
+                  "reason": "The burgundy bag adds a pop of color and enhances the outfit's chicness, aligning with Bella Hadid's style.",
+                  "owned": false
+                }
+              ]
+            }
+          ],
+          "styling_rationale": {
+            "color_season_fit": "The color palette prioritizes Summer Cool tones with the addition of black and burgundy. These colors flatter your cool undertones while adding depth and interest to the outfit.",
+            "body_essence_fit": "The straight lines of the tailored pants provide a sleek, elongated silhouette that aligns with and enhances your straight body lines, ensuring a flattering fit.",
+            "inspiration_translation": "By incorporating structured pants and cowboy boots, the look captures the effortlessly chic and bold edge vibe inspired by Bella Hadid, without directly copying any specific outfit.",
+            "hero_item_and_balance": "The hero piece is the black tailored pants, providing a structured and chic foundation. The boots and bag add texture and color, supporting the hero without overshadowing it.",
+            "key_proportion_moves": [
+              "The choice of tailored pants ensures a clean, elongated line.",
+              "The dark boots add verticality, complementing the straight silhouette."
+            ]
+          }
+        },
+        "critique": {
+          "score": 7,
+          "verdict": "revise",
+          "summary": "The outfit attempts to channel an effortlessly chic yet bold aesthetic, but lacks a clear hero piece. The tailored pants are a solid choice but don't stand out as a hero. The overall look is coherent but forgettable.",
+          "main_issue": "Lack of a clear hero piece and the outfit feels too safe for the intended bold edge.",
+          "plan": {
+            "hero": "Black Tailored Pants",
+            "actions": [
+              {
+                "target_category": "Top",
+                "action_type": "swap",
+                "instruction": "Replace the 'Core top' with a more distinctive piece, like a white button-down shirt, to add interest and align with Bella Hadid's style."
+              },
+              {
+                "target_category": "Bottom",
+                "action_type": "restyle",
+                "instruction": "Consider a slight crop or taper to the black tailored pants to enhance the silhouette and better showcase the cowboy boots."
+              }
+            ]
+          }
+        },
+        "final": {
+          "id": "date-night-chic-with-a-twist",
+          "occasion": "Date Night",
+          "season": "General",
+          "reasoning": "This outfit channels an effortlessly chic vibe with a bold edge, perfect for a casual date night in New York. The black tailored pants serve as the hero piece, offering a refined yet trendy look. The lace bodice dress elements are swapped out for a white button-down shirt, which aligns with the Bella Hadid inspiration, adding a touch of sophistication without losing the romantic flair. The dark chocolate cowboy boots keep the outfit grounded, while the burgundy structured bag adds a pop of color, completing the chic ensemble.",
+          "outfit_options": [
+            {
+              "name": "Date Night Chic with a Twist",
+              "items": [
+                {
+                  "category": "Top",
+                  "item_name": "White Button-Down Shirt",
+                  "search_query": "Women's wo white button-down shirt -clipart -vector -aliexpress -ebay -amazon -walmart -costume -drawing -lowres -canvas -men -mens -male",
+                  "reason": "A crisp white button-down shirt adds a chic, sophisticated touch, aligning with Bella Hadid's style while maintaining the romantic vibe.",
+                  "owned": false
+                },
+                {
+                  "category": "Bottom",
+                  "item_name": "Black Tailored Pants",
+                  "search_query": "Women's wo black tailored pants, slightly cropped or tapered -clipart -vector -aliexpress -ebay -amazon -walmart -costume -drawing -lowres -canvas -men -mens -male",
+                  "reason": "[OWNED] Swapping to black tailored pants as the hero piece enhances silhouette, showcasing the cowboy boots while maintaining a trendy edge.",
+                  "owned": true
+                },
+                {
+                  "category": "Shoes",
+                  "item_name": "Dark Chocolate Cowboy Boots",
+                  "search_query": "Women's dark chocolate cowboy boots -clipart -vector -aliexpress -ebay -amazon -walmart -costume -drawing -lowres -canvas -men -mens -male",
+                  "reason": "These boots introduce an unexpected edge, aligning with the Bella Hadid inspiration and complementing the romantic nature of the dress.",
+                  "owned": false
+                },
+                {
+                  "category": "Accessory",
+                  "item_name": "Burgundy Structured Bag",
+                  "search_query": "Women's burgundy structured bag -clipart -vector -aliexpress -ebay -amazon -walmart -costume -drawing -lowres -canvas -men -mens -male",
+                  "reason": "The burgundy bag adds a pop of color and enhances the outfit's chicness, aligning with Bella Hadid's style.",
+                  "owned": false
+                }
+              ]
+            }
+          ],
+          "styling_rationale": {
+            "color_season_fit": "The color palette focuses on cool tones with the black tailored pants and white button-down shirt, which align well with the Summer Cool color season. The burgundy bag adds a harmonious pop of color that complements the overall look.",
+            "body_essence_fit": "The tailored lines of the white button-down shirt and cropped black pants create a sleek, straight silhouette that complements a straight body essence. The cowboy boots add length to the legs, enhancing the proportion.",
+            "inspiration_translation": "This outfit channels Bella Hadid's effortlessly chic vibe by incorporating a white button-down shirt and cowboy boots for an edgy yet romantic twist. The use of tailored pants instead of a dress keeps the look modern and wearable.",
+            "hero_item_and_balance": "The black tailored pants are the hero, providing a structured, trendy base for the outfit. The rest of the pieces, like the button-down shirt and cowboy boots, support this hero without overwhelming it.",
+            "key_proportion_moves": [
+              "The slightly cropped black tailored pants enhance the length of the legs, especially when paired with cowboy boots.",
+              "The straight lines of the button-down shirt align with the pants, creating a cohesive and flattering silhouette."
+            ]
+          }
+        },
+        "final_score": 7,
+        "accepted": false,
+        "version": "editor_v1"
+      },
+      {
+        "input": "I don't think the shoes match the outfit",
+        "situational_signals": {
+          "external_inspiration": {
+            "name": "Bella Hadid",
+            "vibe": "Effortlessly Chic with a Bold Edge",
+            "wardrobe_staples": [
+              "dark-wash jeans",
+              "brown trench coat",
+              "white button-down shirt",
+              "distressed leather Coach Tabby bag",
+              "brown slingback pumps",
+              "brown leather jacket",
+              "black turtleneck",
+              "bootcut jeans",
+              "block-heel boots",
+              "white jeans",
+              "red sweater",
+              "fur coat",
+              "burgundy bag",
+              "denim shorts",
+              "dark chocolate cowboy boots",
+              "coquette white top"
+            ],
+            "statement_pieces": [
+              "silky Schiaparelli couture fall 2025 gown",
+              "vintage T-shirt featuring En Vogue's 1992 album cover",
+              "lace bodice dress with a ruffled skirt from Rokh's Fall/Winter 2024 collection",
+              "vintage pink floral silk dress from Yves Saint Laurent's Spring/Summer 1999 Couture",
+              "black oversized parachute pants",
+              "see-through floral print tube top"
+            ],
+            "fabric_preferences": [
+              "silk",
+              "denim",
+              "leather",
+              "suede"
+            ],
+            "color_palette": [
+              "fire red",
+              "chocolate brown",
+              "white",
+              "dark denim",
+              "brown",
+              "black",
+              "pink",
+              "camel"
+            ]
+          },
+          "event_type": "Date Night",
+          "weather": null,
+          "location": "New York",
+          "aesthetic": "romantic",
+          "style_interpretation": {},
+          "feedback": {
+            "make_more": [],
+            "make_less": [],
+            "swap_out": [
+              "Shoes"
+            ],
+            "attribute_corrections": [],
+            "expressed_likes": [],
+            "expressed_dislikes": [
+              "shoes don't match"
+            ],
+            "item_directives": [],
+            "owned_anchors": [],
+            "swap_out_raw": [
+              "Shoes"
+            ]
+          },
+          "items_to_remove": [],
+          "requested_items": [],
+          "attribute_corrections": [],
+          "edit_mode": true,
+          "owned_anchors": []
+        },
+        "draft": {
+          "id": "DateNightChic",
+          "occasion": "Date Night",
+          "season": "General",
+          "reasoning": "For a chic date night look that channels Bella Hadid's effortlessly bold style, we swapped the cowboy boots for black slingback pumps. This shift enhances the outfit's romantic vibe while maintaining a sleek silhouette. The structured burgundy bag adds a pop of color, aligning with the Summer Cool palette, and the white button-down keeps it classic and refined.",
+          "outfit_options": [
+            {
+              "name": "Date Night Chic",
+              "items": [
+                {
+                  "category": "Top",
+                  "item_name": "White Button-Down Shirt",
+                  "search_query": "Women's wo white button-down shirt -clipart -vector -aliexpress -ebay -amazon -walmart -costume -drawing -lowres -canvas -men -mens -male",
+                  "reason": "A crisp white button-down shirt adds a chic, sophisticated touch, aligning with Bella Hadid's style while maintaining the romantic vibe.",
+                  "owned": false
+                },
+                {
+                  "category": "Bottom",
+                  "item_name": "Black Tailored Pants",
+                  "search_query": "Women's wo black tailored pants, slightly cropped or tapered -clipart -vector -aliexpress -ebay -amazon -walmart -costume -drawing -lowres -canvas -men -mens -male",
+                  "reason": "[OWNED] Swapping to black tailored pants as the hero piece enhances silhouette, showcasing the cowboy boots while maintaining a trendy edge.",
+                  "owned": true
+                },
+                {
+                  "category": "Shoes",
+                  "item_name": "Black Slingback Pumps",
+                  "search_query": "Women's black slingback pumps -clipart -vector -aliexpress -ebay -amazon -walmart -costume -drawing -lowres -canvas -men -mens -male",
+                  "reason": "The black slingback pumps add elegance and match the romantic aesthetic, making the outfit more cohesive.",
+                  "owned": false
+                },
+                {
+                  "category": "Accessory",
+                  "item_name": "Burgundy Structured Bag",
+                  "search_query": "Women's burgundy structured bag -clipart -vector -aliexpress -ebay -amazon -walmart -costume -drawing -lowres -canvas -men -mens -male",
+                  "reason": "The burgundy bag adds a pop of color and enhances the outfit's chicness, aligning with Bella Hadid's style.",
+                  "owned": false
+                }
+              ]
+            }
+          ],
+          "styling_rationale": {
+            "color_season_fit": "The outfit primarily uses black and white, which are neutral and align with the Summer Cool palette. The addition of a burgundy bag introduces a seasonal pop of color without overwhelming the look.",
+            "body_essence_fit": "The straight lines of the tailored pants and structured shirt honor the user's straight body essence, creating a streamlined silhouette.",
+            "inspiration_translation": "The look channels Bella Hadid's effortless chic with a bold edge by incorporating clean lines and a pop of color through accessories, without over-accessorizing or detracting from the overall elegance.",
+            "hero_item_and_balance": "The hero of this outfit is the structured burgundy bag, which adds a bold yet sophisticated statement. The rest of the outfit stays muted to let this accessory shine.",
+            "key_proportion_moves": [
+              "The slightly cropped tailored pants elongate the legs without breaking the silhouette.",
+              "The slingback pumps add height and elegance, complementing the straight lines of the outfit."
+            ]
+          }
+        },
+        "critique": {
+          "score": 8,
+          "verdict": "revise",
+          "summary": "The outfit is close to achieving a chic and romantic vibe, but the shoe choice needs refinement to fully align with the aesthetic and event.",
+          "main_issue": "The black slingback pumps, while elegant, do not fully capture the bold edge inspired by Bella Hadid's style.",
+          "plan": {
+            "hero": "hero unchanged",
+            "actions": [
+              {
+                "target_category": "Shoes",
+                "action_type": "swap",
+                "instruction": "Replace the black slingback pumps with dark chocolate cowboy boots to better align with Bella Hadid's bold edge and the romantic aesthetic."
+              }
+            ]
+          }
+        },
+        "final": {
+          "id": "DateNightNYC",
+          "occasion": "Date Night",
+          "season": "General",
+          "reasoning": "This outfit channels Bella Hadid's effortlessly chic yet bold edge, perfect for a date night in New York. The dark chocolate cowboy boots add a touch of unexpected flair, balancing the romantic aesthetic with a trendy edge. The burgundy structured bag adds a pop of color, maintaining elegance without overshadowing the hero piece.",
+          "outfit_options": [
+            {
+              "name": "Bold Romance",
+              "items": [
+                {
+                  "category": "Top",
+                  "item_name": "White Button-Down Shirt",
+                  "search_query": "Women's wo white button-down shirt -clipart -vector -aliexpress -ebay -amazon -walmart -costume -drawing -lowres -canvas -men -mens -male",
+                  "reason": "A crisp white button-down shirt adds a chic, sophisticated touch, aligning with Bella Hadid's style while maintaining the romantic vibe.",
+                  "owned": false
+                },
+                {
+                  "category": "Bottom",
+                  "item_name": "Black Tailored Pants",
+                  "search_query": "Women's wo black tailored pants, slightly cropped or tapered -clipart -vector -aliexpress -ebay -amazon -walmart -costume -drawing -lowres -canvas -men -mens -male",
+                  "reason": "[OWNED] Swapping to black tailored pants as the hero piece enhances silhouette, showcasing the cowboy boots while maintaining a trendy edge.",
+                  "owned": true
+                },
+                {
+                  "category": "Shoes",
+                  "item_name": "Dark Chocolate Cowboy Boots",
+                  "search_query": "Women's dark chocolate cowboy boots -clipart -vector -aliexpress -ebay -amazon -walmart -costume -drawing -lowres -canvas -men -mens -male",
+                  "reason": "Replacing the original shoes with these boots introduces a bold edge that aligns with Bella Hadid's style, enhancing the overall chicness of the outfit.",
+                  "owned": false
+                },
+                {
+                  "category": "Accessory",
+                  "item_name": "Burgundy Structured Bag",
+                  "search_query": "Women's burgundy structured bag -clipart -vector -aliexpress -ebay -amazon -walmart -costume -drawing -lowres -canvas -men -mens -male",
+                  "reason": "The burgundy bag adds a pop of color and enhances the outfit's chicness, aligning with Bella Hadid's style.",
+                  "owned": false
+                }
+              ]
+            }
+          ],
+          "styling_rationale": {
+            "color_season_fit": "The color palette respects the Summer Cool season with whites and burgundy, which harmonize well and highlight the user's cool skin undertones.",
+            "body_essence_fit": "The straight lines of the tailored pants and the structured shirt honor the user's straight body essence, offering a streamlined and balanced silhouette.",
+            "inspiration_translation": "The outfit channels Bella Hadid's effortlessly chic yet bold style by incorporating the cowboy boots, adding an element of surprise and edge without overpowering the romantic essence.",
+            "hero_item_and_balance": "The hero piece is the dark chocolate cowboy boots, providing a bold statement that balances the romantic and chic elements of the outfit.",
+            "key_proportion_moves": [
+              "The slightly cropped tailored pants create a clean line that elongates the legs.",
+              "The structured shirt maintains a polished look, essential for a chic vibe."
+            ]
+          }
+        },
+        "final_score": 8,
+        "accepted": false,
+        "version": "editor_v1"
+      },
+      {
+        "input": "I want different shoes",
+        "situational_signals": {
+          "external_inspiration": {
+            "name": "Bella Hadid",
+            "vibe": "Effortlessly Chic with a Bold Edge",
+            "wardrobe_staples": [
+              "dark-wash jeans",
+              "brown trench coat",
+              "white button-down shirt",
+              "distressed leather Coach Tabby bag",
+              "brown slingback pumps",
+              "brown leather jacket",
+              "black turtleneck",
+              "bootcut jeans",
+              "block-heel boots",
+              "white jeans",
+              "red sweater",
+              "fur coat",
+              "burgundy bag",
+              "denim shorts",
+              "dark chocolate cowboy boots",
+              "coquette white top"
+            ],
+            "statement_pieces": [
+              "silky Schiaparelli couture fall 2025 gown",
+              "vintage T-shirt featuring En Vogue's 1992 album cover",
+              "lace bodice dress with a ruffled skirt from Rokh's Fall/Winter 2024 collection",
+              "vintage pink floral silk dress from Yves Saint Laurent's Spring/Summer 1999 Couture",
+              "black oversized parachute pants",
+              "see-through floral print tube top"
+            ],
+            "fabric_preferences": [
+              "silk",
+              "denim",
+              "leather",
+              "suede"
+            ],
+            "color_palette": [
+              "fire red",
+              "chocolate brown",
+              "white",
+              "dark denim",
+              "brown",
+              "black",
+              "pink",
+              "camel"
+            ]
+          },
+          "event_type": "Date Night",
+          "weather": null,
+          "location": "New York",
+          "aesthetic": "romantic",
+          "style_interpretation": {},
+          "feedback": {
+            "make_more": [],
+            "make_less": [],
+            "swap_out": [
+              "Shoes"
+            ],
+            "attribute_corrections": [],
+            "expressed_likes": [],
+            "expressed_dislikes": [],
+            "item_directives": [
+              {
+                "target_category": "Shoes",
+                "intent": "swap_category",
+                "must_include": [],
+                "must_avoid": []
+              }
+            ],
+            "owned_anchors": [],
+            "swap_out_raw": [
+              "Shoes"
+            ]
+          },
+          "items_to_remove": [],
+          "requested_items": [],
+          "attribute_corrections": [],
+          "edit_mode": true,
+          "owned_anchors": []
+        },
+        "draft": {
+          "id": "Effortlessly-Chic-Edge",
+          "occasion": "Date Night",
+          "season": "General",
+          "reasoning": "This outfit channels an effortlessly chic vibe with a bold edge, perfect for a casual date night in New York. The white button-down shirt paired with black tailored pants creates a timeless and clean base, while the burgundy structured bag adds a pop of color. The shoes have been swapped to black ankle boots to enhance the modern chic aesthetic, aligning with Bella Hadid's edgy yet refined style.",
+          "outfit_options": [
+            {
+              "name": "Effortlessly Chic Edge",
+              "items": [
+                {
+                  "category": "Top",
+                  "item_name": "White Button-Down Shirt",
+                  "search_query": "Women's wo white button-down shirt -clipart -vector -aliexpress -ebay -amazon -walmart -costume -drawing -lowres -canvas -men -mens -male",
+                  "reason": "A crisp white button-down shirt adds a chic, sophisticated touch, aligning with Bella Hadid's style while maintaining the romantic vibe.",
+                  "owned": false
+                },
+                {
+                  "category": "Bottom",
+                  "item_name": "Black Tailored Pants",
+                  "search_query": "Women's wo black tailored pants, slightly cropped or tapered -clipart -vector -aliexpress -ebay -amazon -walmart -costume -drawing -lowres -canvas -men -mens -male",
+                  "reason": "[OWNED] Swapping to black tailored pants as the hero piece enhances silhouette, showcasing the cowboy boots while maintaining a trendy edge.",
+                  "owned": true
+                },
+                {
+                  "category": "Shoes",
+                  "item_name": "Black Ankle Boots",
+                  "search_query": "Women's black ankle boots -clipart -vector -aliexpress -ebay -amazon -walmart -costume -drawing -lowres -canvas -men -mens -male",
+                  "reason": "The black ankle boots replace the cowboy boots to maintain an edgy yet chic look, complementing the overall outfit with a modern touch.",
+                  "owned": false
+                },
+                {
+                  "category": "Accessory",
+                  "item_name": "Burgundy Structured Bag",
+                  "search_query": "Women's burgundy structured bag -clipart -vector -aliexpress -ebay -amazon -walmart -costume -drawing -lowres -canvas -men -mens -male",
+                  "reason": "The burgundy bag adds a pop of color and enhances the outfit's chicness, aligning with Bella Hadid's style.",
+                  "owned": false
+                }
+              ]
+            }
+          ],
+          "styling_rationale": {
+            "color_season_fit": "The palette is aligned with the Summer Cool season, featuring classic black and white tones with a burgundy accent that adds depth without clashing with the user's complexion.",
+            "body_essence_fit": "The straight lines of the tailored pants and structured shirt flatter the user's straight body essence, maintaining a clean silhouette.",
+            "inspiration_translation": "The outfit takes inspiration from Bella Hadid's effortlessly chic style by combining classic elements with an edgy twist, specifically through the use of black ankle boots.",
+            "hero_item_and_balance": "The hero of this outfit is the ankle boots, which add a modern edge. The rest of the outfit, with its classic pieces, supports this bold footwear choice.",
+            "key_proportion_moves": [
+              "The slightly cropped tailored pants highlight the ankle boots.",
+              "The structured shirt adds to the clean lines of the outfit."
+            ]
+          }
+        },
+        "critique": {
+          "score": 8,
+          "verdict": "revise",
+          "summary": "The outfit effectively channels an effortlessly chic vibe with a bold edge, suitable for a date night in New York. However, the hero item, the black ankle boots, does not fully align with the Summer Cool color season and the minimalist aesthetic.",
+          "main_issue": "The black ankle boots, while edgy, do not fully complement the Summer Cool color palette and minimalist aesthetic.",
+          "plan": {
+            "hero": "hero unchanged",
+            "actions": [
+              {
+                "target_category": "Shoes",
+                "action_type": "swap",
+                "instruction": "Replace the black ankle boots with dark chocolate brown ankle boots to better align with the Summer Cool color palette and maintain the edgy yet chic aesthetic."
+              }
+            ]
+          }
+        },
+        "final": {
+          "id": "date-night-chic",
+          "occasion": "Date Night",
+          "season": "General",
+          "reasoning": "This effortlessly chic outfit channels Bella Hadid's bold edge while respecting your Summer Cool color palette. The white button-down shirt and black tailored pants provide a sleek foundation, with the burgundy structured bag adding a chic pop of color. The dark chocolate brown ankle boots replace the cowboy boots, perfectly balancing the ensemble with a modern and cohesive look.",
+          "outfit_options": [
+            {
+              "name": "Date Night Chic",
+              "items": [
+                {
+                  "category": "Top",
+                  "item_name": "White Button-Down Shirt",
+                  "search_query": "Women's wo white button-down shirt -clipart -vector -aliexpress -ebay -amazon -walmart -costume -drawing -lowres -canvas -men -mens -male",
+                  "reason": "A crisp white button-down shirt adds a chic, sophisticated touch, aligning with Bella Hadid's style while maintaining the romantic vibe.",
+                  "owned": false
+                },
+                {
+                  "category": "Bottom",
+                  "item_name": "Black Tailored Pants",
+                  "search_query": "Women's wo black tailored pants, slightly cropped or tapered -clipart -vector -aliexpress -ebay -amazon -walmart -costume -drawing -lowres -canvas -men -mens -male",
+                  "reason": "[OWNED] Swapping to black tailored pants as the hero piece enhances silhouette, showcasing the cowboy boots while maintaining a trendy edge.",
+                  "owned": true
+                },
+                {
+                  "category": "Shoes",
+                  "item_name": "Dark Chocolate Brown Ankle Boots",
+                  "search_query": "Women's dark chocolate brown ankle boots -clipart -vector -aliexpress -ebay -amazon -walmart -costume -drawing -lowres -canvas -men -mens -male",
+                  "reason": "Replace the dark chocolate cowboy boots with ankle boots to maintain the edgy yet chic aesthetic and align with the Summer Cool color palette.",
+                  "owned": false
+                },
+                {
+                  "category": "Accessory",
+                  "item_name": "Burgundy Structured Bag",
+                  "search_query": "Women's burgundy structured bag -clipart -vector -aliexpress -ebay -amazon -walmart -costume -drawing -lowres -canvas -men -mens -male",
+                  "reason": "The burgundy bag adds a pop of color and enhances the outfit's chicness, aligning with Bella Hadid's style.",
+                  "owned": false
+                }
+              ]
+            }
+          ],
+          "styling_rationale": {
+            "color_season_fit": "The palette respects your Summer Cool color season by incorporating a white button-down and dark chocolate tones, which are flattering and in harmony with your complexion. The burgundy bag adds a complementary pop without overwhelming the look.",
+            "body_essence_fit": "The outfit's straight lines and tailored elements align well with your straight body essence, keeping the silhouette sleek and elongating.",
+            "inspiration_translation": "By balancing the structured elements with a bold accessory, this look channels Bella Hadid's effortlessly chic style without copying it outright. It maintains an edgy undertone suitable for a date night.",
+            "hero_item_and_balance": "The hero of this outfit is the burgundy structured bag, adding a pop of color and interest. The rest of the ensemble is kept minimal to support this decision.",
+            "key_proportion_moves": [
+              "The slightly cropped tailored pants elongate the legs.",
+              "The ankle boots maintain a balanced silhouette.",
+              "The structured bag provides a focal point without overpowering."
+            ]
+          }
+        },
+        "final_score": 8,
+        "accepted": false,
+        "version": "editor_v1"
+      },
+      {
+        "input": "I don't like the pants",
+        "situational_signals": {
+          "external_inspiration": {
+            "name": "Bella Hadid",
+            "vibe": "Effortlessly Chic with a Bold Edge",
+            "wardrobe_staples": [
+              "dark-wash jeans",
+              "brown trench coat",
+              "white button-down shirt",
+              "distressed leather Coach Tabby bag",
+              "brown slingback pumps",
+              "brown leather jacket",
+              "black turtleneck",
+              "bootcut jeans",
+              "block-heel boots",
+              "white jeans",
+              "red sweater",
+              "fur coat",
+              "burgundy bag",
+              "denim shorts",
+              "dark chocolate cowboy boots",
+              "coquette white top"
+            ],
+            "statement_pieces": [
+              "silky Schiaparelli couture fall 2025 gown",
+              "vintage T-shirt featuring En Vogue's 1992 album cover",
+              "lace bodice dress with a ruffled skirt from Rokh's Fall/Winter 2024 collection",
+              "vintage pink floral silk dress from Yves Saint Laurent's Spring/Summer 1999 Couture",
+              "black oversized parachute pants",
+              "see-through floral print tube top"
+            ],
+            "fabric_preferences": [
+              "silk",
+              "denim",
+              "leather",
+              "suede"
+            ],
+            "color_palette": [
+              "fire red",
+              "chocolate brown",
+              "white",
+              "dark denim",
+              "brown",
+              "black",
+              "pink",
+              "camel"
+            ]
+          },
+          "event_type": "Date Night",
+          "weather": null,
+          "location": "New York",
+          "aesthetic": "romantic",
+          "style_interpretation": {},
+          "feedback": {
+            "make_more": [],
+            "make_less": [],
+            "swap_out": [
+              "Bottom"
+            ],
+            "attribute_corrections": [],
+            "expressed_likes": [],
+            "expressed_dislikes": [
+              "the pants"
+            ],
+            "item_directives": [],
+            "owned_anchors": [],
+            "swap_out_raw": [
+              "Bottom"
+            ]
+          },
+          "items_to_remove": [],
+          "requested_items": [],
+          "attribute_corrections": [],
+          "edit_mode": true,
+          "owned_anchors": []
+        },
+        "draft": {
+          "id": "DateNightChicEdit",
+          "occasion": "Date Night",
+          "season": "General",
+          "reasoning": "For a chic and romantic date night look, we've replaced the tailored pants with a black mini skirt, aligning with the 'Effortlessly Chic with a Bold Edge' vibe inspired by Bella Hadid. The outfit maintains a balanced silhouette and introduces a trendy edge, while the burgundy bag adds a pop of color in line with the Summer Cool palette.",
+          "outfit_options": [
+            {
+              "name": "Effortlessly Chic Date Night",
+              "items": [
+                {
+                  "category": "Top",
+                  "item_name": "White Button-Down Shirt",
+                  "search_query": "Women's wo white button-down shirt -clipart -vector -aliexpress -ebay -amazon -walmart -costume -drawing -lowres -canvas -men -mens -male",
+                  "reason": "A crisp white button-down shirt adds a chic, sophisticated touch, aligning with Bella Hadid's style while maintaining the romantic vibe.",
+                  "owned": false
+                },
+                {
+                  "category": "Bottom",
+                  "item_name": "Black Mini Skirt",
+                  "search_query": "Women's black mini skirt -clipart -vector -aliexpress -ebay -amazon -walmart -costume -drawing -lowres -canvas -men -mens -male",
+                  "reason": "Replacing the pants with a black mini skirt adds a trendy edge while maintaining a balanced silhouette, suitable for the date night setting.",
+                  "owned": false
+                },
+                {
+                  "category": "Shoes",
+                  "item_name": "Dark Chocolate Brown Ankle Boots",
+                  "search_query": "Women's dark chocolate brown ankle boots -clipart -vector -aliexpress -ebay -amazon -walmart -costume -drawing -lowres -canvas -men -mens -male",
+                  "reason": "Replace the dark chocolate cowboy boots with ankle boots to maintain the edgy yet chic aesthetic and align with the Summer Cool color palette.",
+                  "owned": false
+                },
+                {
+                  "category": "Accessory",
+                  "item_name": "Burgundy Structured Bag",
+                  "search_query": "Women's burgundy structured bag -clipart -vector -aliexpress -ebay -amazon -walmart -costume -drawing -lowres -canvas -men -mens -male",
+                  "reason": "The burgundy bag adds a pop of color and enhances the outfit's chicness, aligning with Bella Hadid's style.",
+                  "owned": false
+                }
+              ]
+            }
+          ],
+          "styling_rationale": {
+            "color_season_fit": "The black mini skirt and burgundy bag work harmoniously within the Summer Cool palette, allowing the wearer to stay true to their color season while introducing a trendy edge.",
+            "body_essence_fit": "The straight lines of the black mini skirt honor the user's straight body essence, creating a seamless and flattering silhouette when paired with the white button-down shirt.",
+            "inspiration_translation": "This outfit channels Bella Hadid's 'Effortlessly Chic with a Bold Edge' vibe by combining a classic white shirt with a modern black mini skirt, balancing chic and edge without overdoing it.",
+            "hero_item_and_balance": "The hero of this outfit is the black mini skirt, which adds a trendy and bold edge. The rest of the outfit supports this with classic and chic elements like the white shirt and burgundy bag.",
+            "key_proportion_moves": [
+              "The mini skirt emphasizes the legs, creating a flattering silhouette.",
+              "The structured white shirt balances the look by adding a classic element.",
+              "The ankle boots add height and continuity to the leg line."
+            ]
+          }
+        },
+        "critique": {
+          "score": 8,
+          "verdict": "revise",
+          "summary": "The outfit successfully channels Bella Hadid's 'Effortlessly Chic with a Bold Edge' vibe, but the black mini skirt as the hero lacks the necessary impact. The burgundy bag adds a nice pop of color, but the overall look could benefit from a more cohesive hero piece.",
+          "main_issue": "The black mini skirt, while trendy, does not stand out as a strong hero piece in the context of the outfit.",
+          "plan": {
+            "hero": "hero unchanged",
+            "actions": [
+              {
+                "target_category": "Bottom",
+                "action_type": "swap",
+                "instruction": "Replace the black mini skirt with dark-wash bootcut jeans to enhance the 'Effortlessly Chic with a Bold Edge' vibe and align with Bella Hadid's wardrobe staples."
+              }
+            ]
+          }
+        },
+        "final": {
+          "id": "date_night_chic",
+          "occasion": "Date Night",
+          "season": "General",
+          "reasoning": "By swapping the black tailored pants for dark-wash bootcut jeans, this outfit aligns more closely with Bella Hadid's effortlessly chic style while maintaining the romantic aesthetic. The structured burgundy bag adds a chic pop of color, and the white button-down shirt keeps the look refined and relaxed for a casual date night.",
+          "outfit_options": [
+            {
+              "name": "Effortlessly Chic Date Night",
+              "items": [
+                {
+                  "category": "Top",
+                  "item_name": "White Button-Down Shirt",
+                  "search_query": "Women's wo white button-down shirt -clipart -vector -aliexpress -ebay -amazon -walmart -costume -drawing -lowres -canvas -men -mens -male",
+                  "reason": "A crisp white button-down shirt adds a chic, sophisticated touch, aligning with Bella Hadid's style while maintaining the romantic vibe.",
+                  "owned": false
+                },
+                {
+                  "category": "Bottom",
+                  "item_name": "Dark-Wash Bootcut Jeans",
+                  "search_query": "Women's dark-wash bootcut jeans -clipart -vector -aliexpress -ebay -amazon -walmart -costume -drawing -lowres -canvas -men -mens -male",
+                  "reason": "Enhances the 'Effortlessly Chic with a Bold Edge' vibe and aligns with Bella Hadid's wardrobe staples.",
+                  "owned": false
+                },
+                {
+                  "category": "Shoes",
+                  "item_name": "Dark Chocolate Brown Ankle Boots",
+                  "search_query": "Women's dark chocolate brown ankle boots -clipart -vector -aliexpress -ebay -amazon -walmart -costume -drawing -lowres -canvas -men -mens -male",
+                  "reason": "Replace the dark chocolate cowboy boots with ankle boots to maintain the edgy yet chic aesthetic and align with the Summer Cool color palette.",
+                  "owned": false
+                },
+                {
+                  "category": "Accessory",
+                  "item_name": "Burgundy Structured Bag",
+                  "search_query": "Women's burgundy structured bag -clipart -vector -aliexpress -ebay -amazon -walmart -costume -drawing -lowres -canvas -men -mens -male",
+                  "reason": "The burgundy bag adds a pop of color and enhances the outfit's chicness, aligning with Bella Hadid's style.",
+                  "owned": false
+                }
+              ]
+            }
+          ],
+          "styling_rationale": {
+            "color_season_fit": "The outfit respects the Summer Cool palette with the inclusion of dark-wash jeans, which provide a neutral base, and the burgundy bag that adds a pop of color suitable for the user's complexion.",
+            "body_essence_fit": "The straight lines of the bootcut jeans maintain the user's straight body essence, offering a sleek silhouette that aligns well with their natural lines.",
+            "inspiration_translation": "Swapping the pants for dark-wash bootcut jeans channels Bella Hadid's effortlessly chic vibe, achieving a balance of edge and sophistication without direct imitation.",
+            "hero_item_and_balance": "The hero of this outfit is the dark-wash bootcut jeans, which stand out due to their trend-forward silhouette and wash, while the structured bag and classic shirt support this hero piece.",
+            "key_proportion_moves": [
+              "The bootcut jeans lengthen the legs, providing a flattering silhouette.",
+              "The white button-down shirt maintains a clean line that pairs well with the bootcut jeans."
             ]
           }
         },
@@ -332,20 +1310,15 @@
     "last_critique": {
       "score": 8,
       "verdict": "revise",
-      "summary": "The outfit has a strong foundation with the oversized parachute pants as the hero piece, but it needs refinement to reach an editorial level. The current combination lacks a cohesive edge that aligns with the chic and bold inspiration.",
-      "main_issue": "The outfit lacks a cohesive edge and the brown elements do not fully align with the Summer Cool color season.",
+      "summary": "The outfit successfully channels Bella Hadid's 'Effortlessly Chic with a Bold Edge' vibe, but the black mini skirt as the hero lacks the necessary impact. The burgundy bag adds a nice pop of color, but the overall look could benefit from a more cohesive hero piece.",
+      "main_issue": "The black mini skirt, while trendy, does not stand out as a strong hero piece in the context of the outfit.",
       "plan": {
-        "hero": "Black Oversized Parachute Pants",
+        "hero": "hero unchanged",
         "actions": [
           {
-            "target_category": "Shoes",
+            "target_category": "Bottom",
             "action_type": "swap",
-            "instruction": "Replace the brown slingback pumps with black block-heel boots to maintain a cohesive color palette and add an edgy touch."
-          },
-          {
-            "target_category": "Outerwear",
-            "action_type": "swap",
-            "instruction": "Swap the brown leather jacket for a black leather jacket to better align with the Summer Cool color season and enhance the outfit's chic edge."
+            "instruction": "Replace the black mini skirt with dark-wash bootcut jeans to enhance the 'Effortlessly Chic with a Bold Edge' vibe and align with Bella Hadid's wardrobe staples."
           }
         ]
       }

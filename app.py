@@ -73,6 +73,12 @@ if DEV_MODE and "user" not in st.session_state:
 # =========================================================
 # 1. AUTHENTICATION & SESSION MANAGEMENT
 # =========================================================
+if "ux_events" not in st.session_state:
+    st.session_state.ux_events = []
+
+def ux_callback(event):
+    st.session_state.ux_events.append(event)
+
 query_params = st.query_params 
 
 if "code" in query_params:
@@ -160,6 +166,7 @@ if "manager" not in st.session_state:
         storage = storage,
         dev_mode = DEV_MODE
     )
+    st.session_state.manager.ux_callback = ux_callback
     
     # Send a personalized Welcome Message
     first_name = user_profile.get('full_name', 'Fashionista').split()[0]
@@ -183,10 +190,17 @@ def display_outfit_recommendation(response_data):
 
     # We take the first option for now (simplify for MVP)
     outfit_items = outfit_options[0]['items']
-    
-    with st.spinner("🛍️ Scanning stores for matches..."):
-        # Parallel Image Search
+    prog = st.progress(0, text="🛍️ Finding matching items…")
+    visuals_map = {}
+
+    try:
+        progress = st.progress(90, text="🛍️ Finding matching items…")
         visuals_map = st.session_state.catalog.search_products_parallel(outfit_items)
+        progress.progress(100, text="✨ Done!")
+
+    finally:
+        # Optional: keep it for a moment or remove it
+        prog.empty()
 
     st.divider()
     cols = st.columns(len(outfit_items))
@@ -199,7 +213,8 @@ def display_outfit_recommendation(response_data):
             i_reason = item.get('reason') if isinstance(item, dict) else getattr(item, 'reason', "")
 
             # Visual Indicator for "Owned" items
-            if "[OWNED]" in i_reason:
+            is_owned = item.get("owned") if isinstance(item, dict) else getattr(item, "owned", False)
+            if is_owned:
                 st.markdown(f"**{i_cat}** <span style='background-color:#d4edda; color:#155724; padding:2px 6px; border-radius:4px; font-size:12px;'>CLOSET</span>", unsafe_allow_html=True)
                 clean_reason = i_reason.replace("[OWNED]", "").strip()
             else:
@@ -279,42 +294,65 @@ if prompt := st.chat_input("Ex: I need a brunch outfit for Saturday..."):
 
     # 2. Assistant Response
     with st.chat_message("assistant"):
-        status_box = st.status("🧠 Thinking...", expanded=True)
-        
-        try:
-            # Helper to update status from inside the agent
-            def ui_updater(msg): st.write(msg)
+        status_line = st.empty()
+        progress = st.progress(0, text="🧠 Starting…")
 
-            # Determine if this is a NEW request or a Follow-up
-            # For MVP simplicity, we treat long gaps as new sessions, but here we just call start/refine
-            # based on if we have a current outfit context.
-            
-            if not st.session_state.manager.current_outfit: 
-                # New Outfit Request
+        st.session_state.ux_events = []
+
+        PHASE_TO_PROGRESS = {
+            "intent": 8,
+            "interpret": 15,
+            "generate": 45,
+            "editor": 70,
+            "search": 90,
+            "done": 100,
+            "info": 5,
+        }
+
+        def ux_callback_live(event):
+            st.session_state.ux_events.append(event)
+
+            msg = event.get("message") or "Working…"
+            phase = event.get("phase") or "info"
+            pct = PHASE_TO_PROGRESS.get(phase, 10)
+
+            status_line.markdown(msg)
+            progress.progress(pct, text=msg)
+
+        # IMPORTANT: manager uses this for UX events
+        st.session_state.manager.ux_callback = ux_callback_live
+
+        try:
+            # NEW vs REFINE
+            if not st.session_state.manager.current_outfit:
+                ux_callback_live({"message": "🧠 Understanding your request…", "phase": "interpret"})
                 response_payload = st.session_state.manager.start_new_session(
-                    user_request_context={}, 
+                    user_request_context={},
                     user_query=prompt,
-                    status_callback=ui_updater
+                    status_callback=None,   # ✅ stop using status_callback; rely on manager._ux
                 )
             else:
-                # Refinement (e.g. "Make it more casual")
-                st.write("👂 Listening...")
+                ux_callback_live({"message": "👂 Listening to your feedback…", "phase": "intent"})
                 response_payload = st.session_state.manager.refine_session(prompt)
-            
-            status_box.update(label="✨ Ready!", state="complete", expanded=False)
 
-            # 3. Save & Render Response
+            # Render
             if isinstance(response_payload, dict):
-                # It's an Outfit
+                # If display_outfit_recommendation does product search internally,
+                # this will show right before that blocking call.
+                ux_callback_live({"message": "🛍️ Finding matching items…", "phase": "search"})
+
                 display_outfit_recommendation(response_payload)
+
                 st.session_state.messages.append({"role": "assistant", "content": response_payload, "type": "outfit"})
+                ux_callback_live({"message": "✨ Outfit ready!", "phase": "done"})
             else:
-                # It's Chat/Clarification
                 st.markdown(response_payload)
                 st.session_state.messages.append({"role": "assistant", "content": response_payload, "type": "text"})
+                ux_callback_live({"message": "✅ Done", "phase": "done"})
 
         except Exception as e:
-            status_box.update(label="❌ Error", state="error")
+            status_line.markdown("❌ Error")
+            progress.progress(100, text="❌ Error")
             st.error(f"Something went wrong: {e}")
             st.code(traceback.format_exc())
 

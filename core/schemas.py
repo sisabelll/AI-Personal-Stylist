@@ -7,6 +7,28 @@ from enum import Enum
 def strict_config():
     return ConfigDict(extra="forbid")
 
+def canon_category(cat: str) -> str:
+    c = (cat or "").strip()
+    if not c:
+        return "Unknown"
+    c_low = c.lower().replace("-", "").replace("_", "")
+    mapping = {
+        "top": "Top", "tops": "Top", "shirt": "Top", "blouse": "Top", "tee": "Top", "tshirt": "Top",
+        "bottom": "Bottom", "bottoms": "Bottom", "pants": "Bottom", "jeans": "Bottom", "skirt": "Bottom", "trousers": "Bottom",
+        "shoes": "Shoes", "shoe": "Shoes", "boots": "Shoes", "footwear": "Shoes",
+        "outerwear": "Outerwear", "coat": "Outerwear", "jacket": "Outerwear", "blazer": "Outerwear",
+        "accessory": "Accessory", "accessories": "Accessory", "bag": "Accessory", "jewelry": "Accessory",
+        "dress": "OnePiece", "gown": "OnePiece",
+        "onepiece": "OnePiece", "jumpsuit": "OnePiece", "romper": "OnePiece", "overalls": "OnePiece",
+        "outfit": "Outfit",
+        "unknown": "Unknown",
+    }
+    if c in {"Top","Bottom","Shoes","Outerwear","Accessory","OnePiece","Outfit","Unknown"}:
+        return c
+    return mapping.get(c_low, "Unknown")
+
+Category = Literal["Top","Bottom","Shoes","Outerwear","Accessory","OnePiece","Outfit","Unknown"]
+
 # ==========================================
 # 1. INTERPRETER SCHEMAS (Input Analysis)
 # ==========================================
@@ -96,9 +118,7 @@ class StyleResearchDoc(BaseModel):
 class AttributeCorrection(BaseModel):
     model_config = strict_config()
 
-    target_category: Literal["Top", "Bottom", "Shoes", "Outerwear", "Accessory", "Accessories", "Dress", "Jumpsuit"] = Field(
-        description="Which category the correction applies to."
-    )
+    target_category: Category
     must_include: List[str] = Field(
         default_factory=list,
         description="Attributes that must be reflected (e.g., 'beige', 'no buckle', 'smooth leather', 'not furry')."
@@ -112,18 +132,49 @@ class AttributeCorrection(BaseModel):
         description="Any extra nuance in plain language."
     )
 
+class OwnedAnchor(BaseModel):
+    model_config = strict_config()
+    target_category: Category
+    item_name: str
+    must_include: List[str] = Field(default_factory=list)
+    must_avoid: List[str] = Field(default_factory=list)
+    note: Optional[str] = None
+
+class ItemDirective(BaseModel):
+    """
+    One user instruction about an item or category.
+    """
+    model_config = strict_config()
+    target_category: Category = Field(description="Which category this directive applies to.")
+    intent: Literal["anchor_owned", "anchor_not_owned", "swap_category", "attribute_update", "new_outfit"] = Field(
+        description="anchor_owned: user says it's theirs. swap_category: replace that category. attribute_update: keep type but fix details."
+    )
+
+    # Ownership + identity
+    owned: Optional[bool] = Field(default=None, description="True only if user explicitly says it's theirs ('my', 'I own').")
+    item_name: Optional[str] = Field(
+            default=None,
+            description="Short noun phrase if user provided one (e.g. 'black skirt'). Required for owned anchors."
+        )
+    note: Optional[str] = Field(default=None)
+    
+    # Constraints that affect generation + search
+    must_include: List[str] = Field(default_factory=list, description="Concrete terms to include (e.g. ['black','mini','skirt']).")
+    must_avoid: List[str] = Field(default_factory=list, description="Concrete terms to avoid (e.g. ['furry','shearling','buckle']).")
+    
 class RefinementAnalysis(BaseModel):
     """Output of the Refinement Interpreter."""
     model_config = strict_config()
 
     make_more: List[str] = Field(default=[], description="Attributes to enhance (e.g., 'more edgy').")
     make_less: List[str] = Field(default=[], description="Attributes to reduce (e.g., 'less formal').")
-    swap_out: List[str] = Field(default=[], description="Specific items to replace.")
+    swap_out: List[Category] = Field(default=[], description="Specific items to replace.")
     attribute_corrections: List[AttributeCorrection] = Field(default_factory=list)
     emotional_goal: Optional[str] = Field(default=None, description="New emotional target.")
     expressed_likes: List[str] = Field(default=[], description="Things the user specifically liked.")
     expressed_dislikes: List[str] = Field(default=[], description="Things the user specifically disliked.")
-
+    item_directives: List[ItemDirective] = Field(default_factory=list)
+    owned_anchors: List[OwnedAnchor] = []
 
 # ==========================================
 # 4. USER INTENT SCHEMAS
@@ -134,6 +185,7 @@ class UserActionType(str, Enum):
     ASK_QUESTION = "ask_question"
     FINALIZE_OUTFIT = "finalize_outfit"
     RESET_SESSION = "reset_session"
+    NEW_OUTFIT = "new_outfit"
 
 class UserIntent(BaseModel):
     """Classifies the user's latest input."""
@@ -146,15 +198,13 @@ class UserIntent(BaseModel):
 # ==========================================
 # 5. STYLIST OUTPUT SCHEMAS (The Main Event)
 # ==========================================
-
 class OutfitItem(BaseModel):
-    """A single item in the outfit."""
     model_config = strict_config()
-
-    category: str = Field(description="Type of item (e.g., Top, Shoes).")
-    item_name: str = Field(description="Display name (e.g. 'Silk Camisole').")
-    search_query: str = Field(description="Specific keywords to find this EXACT vibe online. INCLUDE brands or aesthetics. (e.g. 'Reformation navy silk camisole 90s vintage style').")
-    reason: str = Field(description="Why this specific item fits the constraints.")
+    category: Category
+    item_name: str
+    search_query: str
+    reason: str
+    owned: bool = Field(default=False, description="True ONLY if user explicitly said they own this item.")
 
 class OutfitOption(BaseModel):
     """A full outfit grouping."""
@@ -187,7 +237,7 @@ class OutfitRecommendation(BaseModel):
 # ==========================================
 class EditAction(BaseModel):
     model_config = strict_config()
-    target_category: Literal["Top", "Bottom", "Shoes", "Outerwear", "Accessory", "Dress", "Jumpsuit", "Other"]
+    target_category: Category
     action_type: Literal["swap", "add", "remove", "restyle", "tighten_query"]
     instruction: str
 
@@ -203,3 +253,20 @@ class OutfitCritique(BaseModel):
     summary: str
     main_issue: str
     plan: EditPlan
+
+class TasteRubricScore(BaseModel):
+    model_config = strict_config()
+    hero_clarity: int = Field(ge=0, le=3, description="0 none, 1 weak, 2 clear, 3 iconic")
+    coherence: int = Field(ge=0, le=2, description="0 clashes, 1 ok, 2 cohesive")
+    proportion: int = Field(ge=0, le=2, description="0 awkward, 1 fine, 2 flattering/intentional")
+    finishing: int = Field(ge=0, le=2, description="0 unfinished, 1 okay, 2 polished details")
+    trend_signal: int = Field(ge=0, le=1, description="0 none, 1 subtle currentness")
+    restraint: int = Field(ge=0, le=2, description="0 busy, 1 fine, 2 edited")
+    notes: List[str] = Field(default_factory=list)
+
+class TasteRubricResult(BaseModel):
+    model_config = strict_config()
+    rubric: TasteRubricScore
+    total: int = Field(ge=0, le=12)
+    label: Literal["7ish", "8", "9plus"]
+    hard_fails: List[str] = Field(default_factory=list)
