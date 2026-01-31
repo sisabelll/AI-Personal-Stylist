@@ -2,7 +2,7 @@ import json
 import os
 from core.schemas import StyleResearchDoc
 from services.search_tool import SearchTool
-from core.client import OpenAIClient 
+from services.client import OpenAIClient 
 
 class StyleResearcherAgent:
     def __init__(self, client: OpenAIClient):

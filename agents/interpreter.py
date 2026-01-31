@@ -1,7 +1,7 @@
 import json
 from typing import Dict, List, Union
 
-from core.client import OpenAIClient
+from services.client import OpenAIClient
 from core.schemas import StyleInterpretation, UserIntent, UserActionType
 from core.config import Config
 

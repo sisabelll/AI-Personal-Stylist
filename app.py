@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 # --- SERVICES & AGENTS ---
 from services.storage import StorageService
 from services.catalog import CatalogClient
-from core.client import OpenAIClient
+from services.client import OpenAIClient
 from workflow.manager import ConversationManager
 
 # --- VIEWS ---

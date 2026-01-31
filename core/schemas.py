@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, field_validator
 from typing import Dict, List, Optional, Literal
 from enum import Enum
 
@@ -174,7 +174,7 @@ class RefinementAnalysis(BaseModel):
     expressed_likes: List[str] = Field(default=[], description="Things the user specifically liked.")
     expressed_dislikes: List[str] = Field(default=[], description="Things the user specifically disliked.")
     item_directives: List[ItemDirective] = Field(default_factory=list)
-    owned_anchors: List[OwnedAnchor] = []
+    owned_anchors: List[OwnedAnchor] = Field(default_factory=list)
 
 # ==========================================
 # 4. USER INTENT SCHEMAS
@@ -270,3 +270,123 @@ class TasteRubricResult(BaseModel):
     total: int = Field(ge=0, le=12)
     label: Literal["7ish", "8", "9plus"]
     hard_fails: List[str] = Field(default_factory=list)
+
+# ==========================================
+# 7. TREND SCHEMAS (TrendAgent DB)
+# ==========================================
+BodyEssence = Literal["straight", "wave", "natural"]
+ColorSeason = Literal["Spring Warm", "Summer Cool", "Autumn Warm", "Winter Cool"]
+WearPreference = Literal["womenswear", "menswear", "unisex"]
+TrendType = Literal["micro", "macro"]
+
+class TrendEssenceOverride(BaseModel):
+    model_config = strict_config()
+    best_versions: List[str] = Field(default_factory=list)
+    avoid_versions: List[str] = Field(default_factory=list)
+    styling_notes: List[str] = Field(default_factory=list)
+
+class EssenceOverrides(BaseModel):
+    model_config = strict_config()
+    straight: TrendEssenceOverride = Field(default_factory=TrendEssenceOverride)
+    wave: TrendEssenceOverride = Field(default_factory=TrendEssenceOverride)
+    natural: TrendEssenceOverride = Field(default_factory=TrendEssenceOverride)
+
+class TrendColorOverride(BaseModel):
+    model_config = strict_config()
+    best_colors: List[str] = Field(default_factory=list)
+    avoid_colors: List[str] = Field(default_factory=list)
+    styling_notes: List[str] = Field(default_factory=list)
+
+class ColorOverrides(BaseModel):
+    """
+    Use snake_case keys for schema stability.
+    Map from UI labels in code if needed.
+    """
+    model_config = strict_config()
+    spring_warm: TrendColorOverride = Field(default_factory=TrendColorOverride)
+    summer_cool: TrendColorOverride = Field(default_factory=TrendColorOverride)
+    autumn_warm: TrendColorOverride = Field(default_factory=TrendColorOverride)
+    winter_cool: TrendColorOverride = Field(default_factory=TrendColorOverride)
+
+class TrendCard(BaseModel):
+    model_config = strict_config()
+
+    trend_key: str
+    season: str
+    trend_type: TrendType = "micro"
+    wear_scope: WearPreference = "unisex"
+
+    canonical_name: str
+    trend_name: str
+
+    signals: List[str] = Field(default_factory=list)
+    keywords: List[str] = Field(default_factory=list)
+    what_to_borrow: List[str] = Field(default_factory=list)
+    avoid: List[str] = Field(default_factory=list)
+    sources: List[str] = Field(default_factory=list)
+
+    essence_overrides: EssenceOverrides = Field(default_factory=EssenceOverrides)
+    color_overrides: ColorOverrides = Field(default_factory=ColorOverrides)
+
+    confidence: float = 0.65
+    shelf_life_weeks: Optional[int] = None
+
+class TrendCardList(BaseModel):
+    model_config = strict_config()
+    cards: List[TrendCard] = Field(default_factory=list)
+
+# ---------- LLM ONLY ----------
+class TrendCardLLM(BaseModel):
+    """
+    LLM output shape (NO computed identifiers).
+    """
+    model_config = strict_config()
+
+    trend_name: str
+    trend_type: TrendType = "micro"
+    wear_scope: WearPreference = "unisex"
+
+    signals: List[str] = Field(default_factory=list)
+    keywords: List[str] = Field(default_factory=list)
+    what_to_borrow: List[str] = Field(default_factory=list)
+    avoid: List[str] = Field(default_factory=list)
+
+    confidence: int = Field(ge=1, le=5, default=3)
+    shelf_life_weeks: int = Field(ge=1, le=52, default=12)
+
+    sources: List[str] = Field(default_factory=list)
+
+    essence_overrides: EssenceOverrides = Field(default_factory=EssenceOverrides)
+    color_overrides: ColorOverrides = Field(default_factory=ColorOverrides)
+
+class TrendCardListLLM(BaseModel):
+    model_config = strict_config()
+    cards: List[TrendCardLLM] = Field(default_factory=list)
+
+class SourceTrendNotesLLM(BaseModel):
+    """
+    What the LLM is responsible for producing.
+    Keep this minimal + stable.
+    """
+    model_config = strict_config()
+
+    trend_phrases: List[str] = Field(default_factory=list, description="3-12 short phrases")
+    signals: List[str] = Field(default_factory=list, description="4-12 concrete bullets")
+    in_out: Optional[str] = Field(default=None, description="Optional 'in/out' if explicitly stated")
+    quality: Literal["high", "medium", "low"] = Field(default="medium")
+
+
+class SourceTrendNotes(BaseModel):
+    """
+    What YOU store/use internally (metadata + LLM notes).
+    """
+    model_config = strict_config()
+
+    url: str
+    publisher: str
+    title: str
+
+    trend_phrases: List[str] = Field(default_factory=list)
+    signals: List[str] = Field(default_factory=list)
+    in_out: Optional[str] = None
+    quality: Literal["high", "medium", "low"] = "medium"

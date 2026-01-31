@@ -2,7 +2,7 @@ import json
 from typing import Any, Dict, Optional, List, Iterable
 
 from core.config import Config
-from core.client import OpenAIClient
+from services.client import OpenAIClient
 from core.schemas import OutfitRecommendation, RefinementAnalysis, canon_category
 from core.style_program_schemas import StyleProgram
 

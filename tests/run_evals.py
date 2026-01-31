@@ -1,7 +1,7 @@
 import json
 import argparse
 import pprint
-from core.client import OpenAIClient
+from services.client import OpenAIClient
 from workflow.manager import ConversationManager
 from services.storage import DataLoader
 

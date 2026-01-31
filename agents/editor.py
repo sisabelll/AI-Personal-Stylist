@@ -1,7 +1,7 @@
 import json
 from core.config import Config
 from core.schemas import OutfitRecommendation, OutfitCritique
-from core.client import OpenAIClient
+from services.client import OpenAIClient
 
 class EditorAgent:
     def __init__(self, client: OpenAIClient):
