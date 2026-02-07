@@ -156,6 +156,19 @@ class StyleStylist:
             - Palette reminder: must respect user's color season ({color_season})
             """.strip()
 
+        trend_context = situational_signals.get("trend_context") or {}
+        trend_block = ""
+        if trend_context and trend_context.get("selected_trends"):
+            trend_block = f"""
+            TREND CONTEXT (USE SPARINGLY)
+            - Trend budget: 1 trend-forward element max unless user explicitly asks for "very trendy".
+            - Only use trends if they improve taste AND fit the user's color season/body lines.
+            - Prefer subtle, modern updates (silhouette/texture/finishing) over gimmicks.
+
+            Selected trend notes:
+            {json.dumps(trend_context, ensure_ascii=False)}
+            """.strip()
+
         context_block = f"""
         CONTEXT
         - Season: {season}
@@ -232,12 +245,12 @@ class StyleStylist:
         3) Formality coherence: high formality => avoid athletic sneakers, distressed denim, nylon backpack vibes.
 
         OWNED ITEM RULE
-        Only mark owned=true IF the user explicitly said it’s theirs (“my”, “I own”, “in my closet”).
-        If owned=true, reason MUST start with “[OWNED]”.
+        Only mark owned=true IF the user explicitly said it's theirs (“my”, “I own”, “in my closet”).
+        If owned=true, reason MUST start with “[OWNED]”.'
         """.strip()
 
         system_prompt = "\n\n".join(
-            [base_block, program_block, inspiration_block, context_block, edit_block, physics_block]
+            [base_block, program_block, inspiration_block, trend_block, context_block, edit_block, physics_block]
         ).strip()
 
         editor_plan = situational_signals.get("editor_plan")

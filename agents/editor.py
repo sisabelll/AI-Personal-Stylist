@@ -1,25 +1,93 @@
 import json
 from core.config import Config
-from core.schemas import OutfitRecommendation, OutfitCritique
+from core.schemas import OutfitRecommendation, OutfitCritique, WearPreference
+from services.trends_retriever import TrendsRetriever, simple_rank, build_trend_context_pack
 from services.client import OpenAIClient
+from services.storage import StorageService 
+
+def _safe_dump(x):
+    if hasattr(x, "model_dump"):
+        return x.model_dump()
+    return x
+
+def _derive_context_terms(user_profile: dict, situational_signals: dict, outfit: OutfitRecommendation) -> list[str]:
+    terms = []
+
+    # From profile
+    cs = user_profile.get("color_season") or user_profile.get("personal_color")
+    be = user_profile.get("body_style_essence")
+    if cs: terms.append(str(cs))
+    if be: terms.append(str(be))
+
+    # From situational signals
+    fb = situational_signals.get("feedback") or {}
+    fb = _safe_dump(fb)
+    terms += (fb.get("make_more") or [])
+    terms += (fb.get("make_less") or [])
+    terms += (fb.get("expressed_likes") or [])
+    terms += (fb.get("expressed_dislikes") or [])
+
+    # From the outfit itself (cheap keywording)
+    try:
+        for opt in outfit.outfit_options[:1]:
+            for it in opt.items:
+                terms.append(it.category)
+                terms.append(it.item_name)
+    except Exception:
+        pass
+
+    # normalize to strings
+    return [str(t) for t in terms if t and str(t).strip()]
 
 class EditorAgent:
-    def __init__(self, client: OpenAIClient):
+    def __init__(self, client: OpenAIClient, storage: StorageService = None):
         self.client = client
+        self.storage = storage or StorageService()
+        self.trends = TrendsRetriever(self.storage)
 
-    def critique(self, outfit: OutfitRecommendation, user_profile: dict, situational_signals: dict) -> OutfitCritique:
+    def critique(
+        self,
+        outfit: OutfitRecommendation,
+        user_profile: dict,
+        situational_signals: dict
+    ) -> OutfitCritique:
         fb = situational_signals.get("feedback") or {}
-        if hasattr(fb, "model_dump"):
-            fb = fb.model_dump()
+        fb = _safe_dump(fb)
 
         edit_mode = bool(situational_signals.get("edit_mode"))
         swap_out = fb.get("swap_out") or []
-        # canonicalize if your pipeline sometimes sends lowercase
         swap_out = [s for s in swap_out if s]
 
         edit_scope = "single_swap" if (edit_mode and len(swap_out) <= 1) else "normal"
 
-        system_prompt = f"""
+        # -------------------------
+        # ✅ TREND PACK INJECTION
+        # -------------------------
+        wear_pref: WearPreference = (
+            situational_signals.get("wear_preference")
+            or (user_profile.get("preferences") or {}).get("wear_preference")
+            or "unisex"
+        )
+        season = getattr(outfit, "season", None) or situational_signals.get("season") or "2026"
+
+        # Pull some recent trends, rank locally, then compress
+        all_trends = self.trends.fetch_recent(season=season, wear_pref=wear_pref, limit=50)
+        context_terms = _derive_context_terms(user_profile, situational_signals, outfit)
+        top = simple_rank(all_trends, context_terms=context_terms, top_k=8)
+        trend_pack = build_trend_context_pack(top, max_cards=6)
+
+        trend_context = situational_signals.get("trend_context") or {}
+        trend_block = ""
+        if trend_context and trend_context.get("selected_trends"):
+            trend_block = f"""
+            TREND CONTEXT (FOR SCORING)
+            Use this to judge whether the outfit has a subtle, current signal (not costume-y).
+            If outfit is missing any modern signal, you may request ONE trend-forward upgrade in the edit plan,
+            but only within allowed_swap_categories.
+            {json.dumps(trend_context, ensure_ascii=False)}
+            """.strip()
+
+        base_block = f"""
         You are a ruthless fashion editor.
 
         Return STRICT JSON matching OutfitCritique. No extra keys.
@@ -43,7 +111,11 @@ class EditorAgent:
         - Propose MAX 2 actions (but for single_swap prefer MAX 1).
         - Prefer the smallest possible changes.
         - Respect the user's color season and body essence.
-        - If mid-calf boots/Uggs are involved, require a hem/proportion strategy (only if Shoes or Bottom are allowed swaps).
+
+        TREND CARDS (OPTIONAL GUIDANCE):
+        Use at most 1-2 subtle trend touches to improve modernity and finish.
+        Do NOT turn the outfit into a trend costume.
+        {json.dumps(trend_pack, ensure_ascii=False)}
 
         USER PROFILE:
         {json.dumps({
@@ -56,6 +128,10 @@ class EditorAgent:
         {json.dumps(situational_signals, ensure_ascii=False)}
         """.strip()
 
+        system_prompt = "\n\n".join(
+            [base_block, trend_block]
+        ).strip()
+
         return self.client.call_api(
             model=Config.OPENAI_MODEL_SMART,
             messages=[
@@ -64,87 +140,4 @@ class EditorAgent:
             ],
             temperature=0.2,
             response_model=OutfitCritique,
-        )
-    
-# class OutfitCritic:
-#     def __init__(self, client):
-#         self.client = client
-
-#     def evaluate(self, program, recommendation: dict, current_outfit=None) -> dict:
-#         prompt = f"""
-#         You are an editorial fashion director. Be decisive and picky.
-#         Your job is to upgrade taste: cohesion, proportion, fabric realism, and modernity.
-
-#         STYLE PROGRAM:
-#         {program.model_dump()}
-
-#         CURRENT_OUTFIT_LOCK (if any):
-#         {json.dumps(current_outfit or [], indent=2)}
-
-#         OUTFIT RECOMMENDATION JSON:
-#         {json.dumps(recommendation, indent=2)}
-
-#         Score each outfit_option (0-5 each):
-#         cohesion, proportion, fabric_quality, formality_alignment, palette_discipline,
-#         trend_selectivity, styling_finesse, non_generic
-
-#         Then:
-#         - choose best_option_name
-#         - verdict: pass if total>=threshold and minima met; else revise if fixable with <=2 swaps; else fail
-#         - top_issues: max 3, with concrete fixes
-#         - short_fix_brief: <= 80 tokens
-#         - surgical_edit_plan: max 2 swaps. If editing, DO NOT touch locked items.
-
-#         Return STRICT JSON with keys:
-#         best_option_name, verdict, total_score, category_scores, top_issues, short_fix_brief, surgical_edit_plan
-#         """
-#         return self.client.call_api(
-#             model=Config.OPENAI_MODEL_SMART,
-#             messages=[{"role": "system", "content": prompt}],
-#             temperature=0.2,
-#         )
-
-class OutfitSurgeon:
-    def __init__(self, client):
-        self.client = client
-
-    def revise(self, program, recommendation: dict, critique: dict, current_outfit=None, allowed_swap_categories=None) -> OutfitRecommendation:
-        allowed_swap_categories = allowed_swap_categories or []
-
-        prompt = f"""
-        You are an outfit surgeon. Apply minimal edits for maximum taste.
-
-        OUTPUT: Return UPDATED OutfitRecommendation JSON only. No extra text.
-
-        ALLOWED SWAPS (ONLY these categories may change): {json.dumps(allowed_swap_categories, ensure_ascii=False)}
-        - If a category is NOT in ALLOWED SWAPS, you MUST copy item_name + search_query verbatim from LOCKED CURRENT OUTFIT.
-
-        STYLE PROGRAM:
-        {json.dumps(program.model_dump(), ensure_ascii=False, indent=2)}
-
-        CRITIQUE:
-        {json.dumps(critique, ensure_ascii=False, indent=2)}
-
-        LOCKED CURRENT OUTFIT (if any):
-        {json.dumps(current_outfit or [], ensure_ascii=False, indent=2)}
-
-        CURRENT RECOMMENDATION:
-        {json.dumps(recommendation, ensure_ascii=False, indent=2)}
-
-        RULES
-        - Preserve id/occasion/season fields.
-        - Keep outfit_options structure. Prefer editing ONLY option 0.
-        - MAX swaps:
-        - If len(ALLOWED SWAPS)==1: MAX 1 swap total.
-        - Else: MAX 2 swaps total.
-        - Improve: cohesion, fabric realism, modernity ONLY within allowed swaps.
-
-        Return UPDATED OutfitRecommendation JSON only.
-        """.strip()
-
-        return self.client.call_api(
-            model=Config.OPENAI_MODEL_SMART,
-            messages=[{"role": "system", "content": prompt}],
-            temperature=0.2,
-            response_model=OutfitRecommendation,
         )

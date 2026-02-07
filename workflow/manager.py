@@ -20,7 +20,7 @@ from agents.editor import EditorAgent
 
 # --- SERVICES ---
 from services.catalog import CatalogClient
-
+from services.trends_retriever import TrendsRetriever, simple_rank, build_trend_context_pack
 
 class ConversationManager:
     def __init__(self, client, user_profile, style_rules, storage=None, dev_mode=False):
@@ -142,6 +142,13 @@ class ConversationManager:
         situational_signals = self._base_signals()
         situational_signals["edit_mode"] = False
 
+        trend_context = self._get_trend_context(situational_signals, user_query)
+        if trend_context:
+            situational_signals["trend_context"] = trend_context
+            print(f"📈 Trend context attached: cards={len(trend_context.get('selected_trends', []))} tags={trend_context.get('retrieval_tags')}")
+            
+        self._log_trend_context(situational_signals)
+
         final_obj, critique, draft_obj = self._generate_with_editor_pass(
             user_query=user_query,
             situational_signals=situational_signals,
@@ -208,6 +215,13 @@ class ConversationManager:
             situational_signals["edit_mode"] = False
             situational_signals["force_new_outfit"] = True
 
+            trend_context = self._get_trend_context(situational_signals, user_feedback_text)
+            if trend_context:
+                situational_signals["trend_context"] = trend_context
+                print(f"📈 Trend context attached (refine): cards={len(trend_context.get('selected_trends', []))}")
+
+            self._log_trend_context(situational_signals)
+
             final_obj, critique, draft_obj = self._generate_with_editor_pass(
                 user_query=user_feedback_text,
                 situational_signals=situational_signals,
@@ -233,6 +247,80 @@ class ConversationManager:
     # ====================================================
     # 🧠 CORE LOGIC
     # ====================================================
+    def build_trend_context_terms(
+        self,
+        user_profile: dict,
+        situational_signals: dict,
+        user_query: str,
+        outfit_items = None,
+        max_terms: int = 12,
+    ) -> list[str]:
+        terms: list[str] = []
+
+        # Style interpretation
+        interp = situational_signals.get("style_interpretation") or {}
+        if isinstance(interp, dict):
+            if interp.get("aesthetic_bias"):
+                terms.append(str(interp["aesthetic_bias"]))
+            terms += [str(x) for x in (interp.get("vibe_modifiers") or []) if x]
+
+        # User profile anchor
+        cs = user_profile.get("color_season") or user_profile.get("personal_color")
+        if cs:
+            terms.append(str(cs).replace(" ", "_").lower())
+
+        be = user_profile.get("body_style_essence")
+        if be:
+            terms.append(str(be).replace(" ", "_").lower())
+
+        # Dedup + cap
+        seen = set()
+        out = []
+        for t in terms:
+            t = (t or "").strip().lower()
+            if not t or t in seen:
+                continue
+            seen.add(t)
+            out.append(t)
+            if len(out) >= max_terms:
+                break
+
+        return out
+
+
+    def _get_trend_context(self, situational_signals: dict, user_query: str) -> dict:
+        """
+        Pull a SMALL pack of trend notes relevant to this request.
+        Returns {} if storage/trends not available.
+        """
+        if not self.storage:
+            return {}
+
+        try:
+            wear_pref = (self.user_profile.get("wear_preference") or "unisex").lower()
+            # optional: map "Unisex" -> "unisex"
+            season = self.current_context.get("season") or self._infer_season()
+
+            current_items = self._get_current_outfit_items() or []
+
+            context_terms = self.build_trend_context_terms(
+                user_profile=self.user_profile,
+                situational_signals=situational_signals,
+                user_query=user_query,
+                outfit_items=current_items,
+                max_terms=12,
+            )
+
+            retriever = TrendsRetriever(self.storage)
+            cards = retriever.fetch_recent(season=season, wear_pref=wear_pref, limit=40)
+
+            ranked = simple_rank(cards, context_terms, top_k=8)
+            return build_trend_context_pack(ranked, max_cards=6)
+        except Exception as e:
+            print(f"⚠️ Trend retrieval failed: {e}")
+            print(traceback.format_exc())
+            return {}
+
     def _generate_with_editor_pass(
         self,
         user_query: str,
@@ -464,6 +552,24 @@ class ConversationManager:
 
         # 4) STRUCTURE-AWARE SWAP EXPANSION (template switching)
         old_cats = {canon_category((it.get("category") or "").strip()) for it in current_outfit_items}
+        locked_cats = {canon_category(a.get("target_category")) for a in owned_anchors if a.get("target_category")}
+        locked_cats.discard("Unknown")
+        requested_items = self.current_context.get("requested_items", []) or []
+        requested_cats = set()
+        for item in requested_items:
+            cat = canon_category(item)
+            if cat != "Unknown":
+                requested_cats.add(cat)
+                continue
+            for tok in re.split(r"[^a-z0-9]+", (item or "").lower()):
+                if not tok:
+                    continue
+                tok_cat = canon_category(tok)
+                if tok_cat != "Unknown":
+                    requested_cats.add(tok_cat)
+        locked_cats |= requested_cats
+        if not swap_set:
+            swap_set = {c for c in old_cats if c not in locked_cats and c != "Unknown"}
         swap_set = self._expand_swap_set(old_cats, swap_set)
 
         feedback_analysis["swap_out"] = sorted(swap_set)
@@ -485,8 +591,13 @@ class ConversationManager:
                 "owned_anchors": owned_anchors,
             }
         )
+        trend_context = self._get_trend_context(situational_signals, user_text)
+        if trend_context:
+            situational_signals["trend_context"] = trend_context
+            print(f"📈 Trend context attached (refine): cards={len(trend_context.get('selected_trends', []))}")
 
         # 6) Generate with editor pass
+        self._log_trend_context(situational_signals)
         self._ux("🎨 Updating the outfit…", phase="generation")
         final_obj, critique, draft_obj = self._generate_with_editor_pass(
             user_query=user_text,
@@ -959,6 +1070,16 @@ class ConversationManager:
         # ban OnePiece + (Top or Bottom)
         if "OnePiece" in cats and ("Top" in cats or "Bottom" in cats):
             raise ValueError("Physics fail: OnePiece cannot coexist with Top/Bottom.")
+        
+    def _log_trend_context(self, signals: dict):
+        tc = signals.get("trend_context") or {}
+        if not tc:
+            print("📈 Trend context: (none)")
+            return
+        cards = tc.get("selected_trends") or []
+        print(f"📈 Trend context: cards={len(cards)} tags={tc.get('retrieval_tags')}")
+        for c in cards[:3]:
+            print(f"   - {c.get('trend_name')} | borrow={c.get('what_to_borrow')} | avoid={c.get('avoid')}")
 
     # ====================================================
     # 🛠️ UTILITIES & SNAPSHOTS
