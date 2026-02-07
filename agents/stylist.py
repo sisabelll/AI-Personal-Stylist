@@ -128,6 +128,10 @@ class StyleStylist:
         You do NOT generate generic outfits or replace items unless explicitly asked.
 
         You must return STRICT JSON that matches the OutfitRecommendation schema.
+        For each item:
+            - why_short: ONE sentence (max 110 characters). Must be specific (fit/color/hero/trend).
+            - reason: optional. If present, 1-3 short bullets max. No paragraphs.
+
         Do NOT include any extra keys or commentary outside the schema.
         """.strip()
 

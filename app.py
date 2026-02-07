@@ -179,10 +179,31 @@ if "manager" not in st.session_state:
 
 def display_outfit_recommendation(response_data):
     """Renders the visual moodboard."""
-    # 1. The Reasoning
+    # 1. The Reasoning (NEW)
     with st.container():
         st.subheader("💡 The Edit")
-        st.info(response_data.get('reasoning', "Here is a look curated just for you."))
+
+        reasoning = (response_data.get("reasoning") or "").strip()
+        outfit0 = (response_data.get("outfit_options") or [{}])[0]
+        items0 = outfit0.get("items") or []
+
+        # Make a compact list like: “Hero: ___ • Key changes: ___ • Palette: ___”
+        hero_guess = ""
+        if items0:
+            # lightweight heuristic: treat Outerwear or Accessory as hero if present, else Shoes, else Top
+            priority = ["Outerwear", "Accessory", "Shoes", "Top", "Bottom", "OnePiece"]
+            by_cat = {it.get("category"): it for it in items0 if isinstance(it, dict)}
+            for cat in priority:
+                if cat in by_cat:
+                    hero_guess = by_cat[cat].get("item_name") or ""
+                    break
+
+        with st.container(border=True):
+            st.markdown(
+            f"**Editor's note**\n\n"
+            f"- **Hero:** {hero_guess or 'Clean silhouette'}\n"
+            f"- **Strategy:** {reasoning or 'Balanced proportions + season-friendly palette.'}"
+        )
     
     # 2. The Visuals
     outfit_options = response_data.get('outfit_options', [])
@@ -210,16 +231,13 @@ def display_outfit_recommendation(response_data):
             # Handle object/dict differences
             i_name = item.get('item_name') if isinstance(item, dict) else item.item_name
             i_cat = item.get('category') if isinstance(item, dict) else item.category
-            i_reason = item.get('reason') if isinstance(item, dict) else getattr(item, 'reason', "")
 
             # Visual Indicator for "Owned" items
             is_owned = item.get("owned") if isinstance(item, dict) else getattr(item, "owned", False)
             if is_owned:
                 st.markdown(f"**{i_cat}** <span style='background-color:#d4edda; color:#155724; padding:2px 6px; border-radius:4px; font-size:12px;'>CLOSET</span>", unsafe_allow_html=True)
-                clean_reason = i_reason.replace("[OWNED]", "").strip()
             else:
                 st.markdown(f"**{i_cat}**")
-                clean_reason = i_reason
 
             # Render Image
             product = visuals_map.get(i_name)
@@ -231,10 +249,30 @@ def display_outfit_recommendation(response_data):
                 st.warning("No image found")
                 st.caption(i_name)
             
-            # Why this item?
-            if clean_reason:
-                with st.expander("Why?"):
-                    st.write(clean_reason)
+            # WHY — always show full text
+            item_dict = item if isinstance(item, dict) else item.model_dump()
+
+            reason = (item_dict.get("reason") or "").strip()
+
+            # remove [OWNED] prefix for display
+            if item_dict.get("owned") and reason.startswith("[OWNED]"):
+                reason = reason.replace("[OWNED]", "").strip()
+
+            if reason:
+                st.markdown(
+                    f"""
+                    <div style="
+                        margin-top: 6px;
+                        font-size: 0.85rem;
+                        line-height: 1.4;
+                        color: #6b7280;
+                    ">
+                    {reason}
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+            st.markdown("<hr style='margin:8px 0; opacity:0.2;'>", unsafe_allow_html=True)
 
 # =========================================================
 # 4. MAIN INTERFACE
