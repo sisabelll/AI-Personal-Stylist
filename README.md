@@ -3,7 +3,13 @@
 > A multi-agent AI system that helps you discover and develop your personal style — not just what to wear today, but who you want to become.
 
 ---
+<img width="1548" height="1624" alt="main_page" src="https://github.com/user-attachments/assets/849c9602-29d8-4692-97fc-eea86d87f566" />
+The Stylist tab — context-aware outfit recommendations with an Editor's note explaining the strategy behind the look
 
+<img width="1660" height="918" alt="inspiration_board" src="https://github.com/user-attachments/assets/d941dfae-bae0-40a7-b73c-7ebc405cf068" />
+The Inspiration Board — a curated visual feed from style icons, updated automatically by the Inspiration Agent
+
+---
 ## Why This Exists
 
 Personal stylists are one of the most impactful yet inaccessible services in the world. They shape how people show up, how they're perceived, and how they feel about themselves — but they're almost exclusively available to celebrities and the wealthy.
