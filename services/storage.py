@@ -108,6 +108,33 @@ class StorageService:
         except Exception as e:
             print(f"Error adding item: {e}")
             return False
+        
+    # ==========================================
+    # Revisions
+    # ==========================================
+    def insert_styling_revision(self, row: dict):
+        """
+        Inserts one revision event into Supabase.
+        `row` must be JSON-serializable for jsonb fields.
+        """
+        return self.supabase.table("styling_revisions").insert(row).execute()
+    
+    def fetch_accepted_revisions(self, user_id: str, tags: list[str], limit: int = 5):
+        q = (
+            self.supabase.table("styling_revisions")
+            .select("final_score, style_tags, lessons, version, created_at")
+            .eq("user_id", str(user_id))
+            .eq("accepted", True)
+            .order("created_at", desc=True)
+            .limit(limit)
+        )
+
+        if tags:
+            tags = [t for t in tags if t][:3]
+            conds = ",".join([f"style_tags.cs.{{{t}}}" for t in tags])
+            q = q.or_(conds)
+
+        return q.execute()
 
     # ==========================================
     # 📂 STATIC FILES (Preserving Old Functionality)

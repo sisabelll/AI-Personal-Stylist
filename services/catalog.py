@@ -1,13 +1,91 @@
 import requests
+from urllib.parse import urlparse
+from typing import Optional
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import streamlit as st
 from core.config import Config
+
+# Bump to invalidate Streamlit cache when query logic changes.
+CACHE_VERSION = "v3"
+
+BLOCKED_DOMAINS = {
+    "wordpress.com",
+    "blogspot.com",
+    "pinterest.com",
+    "pinimg.com",
+}
+
+BLOCKED_SUBSTRINGS = (
+    "clipart",
+    "vector",
+    "svg",
+    "icon",
+    "logo",
+)
+
+# TLDs that never host retail product pages
+BLOCKED_TLDS = (".edu", ".gov", ".mil")
+
+# Path/title keywords that reliably indicate a non-retail page on any domain
+BLOCKED_CONTEXT_KEYWORDS = (
+    "faculty",
+    "staff",
+    "professor",
+    "department",
+    "university",
+    "college",
+    "nonprofit",
+    "foundation",
+    "museum",
+    "hospital",
+    "clinic",
+    "welcome-new",
+    "welcomes-new",
+    "meets-the-team",
+    "about-us",
+    "our-team",
+    "/news/",
+    "/press/",
+    "/blog/",
+    "/events/",
+)
+
+
+def _is_blocked_source(url: Optional[str], display_link: Optional[str], context_link: Optional[str]) -> bool:
+    for candidate in (url, context_link):
+        if not candidate:
+            continue
+        host = (urlparse(candidate).netloc or "").lower()
+        for dom in BLOCKED_DOMAINS:
+            if host == dom or host.endswith(f".{dom}"):
+                return True
+        lowered = candidate.lower()
+        if any(s in lowered for s in BLOCKED_SUBSTRINGS):
+            return True
+    if display_link:
+        host = display_link.lower()
+        for dom in BLOCKED_DOMAINS:
+            if host == dom or host.endswith(f".{dom}"):
+                return True
+        if any(s in host for s in BLOCKED_SUBSTRINGS):
+            return True
+
+    # Extra checks on context_link only (the page URL, not the image URL)
+    if context_link:
+        host = (urlparse(context_link).netloc or "").lower()
+        if any(host.endswith(tld) for tld in BLOCKED_TLDS):
+            return True
+        lowered = context_link.lower()
+        if any(kw in lowered for kw in BLOCKED_CONTEXT_KEYWORDS):
+            return True
+
+    return False
 
 # ---------------------------------------------------------
 # 1. THE CACHED IMAGE SEARCHER
 # ---------------------------------------------------------
 @st.cache_data(show_spinner=False, persist="disk")
-def cached_google_image_search(query: str, api_key: str, cse_id: str) -> dict:
+def cached_google_image_search(query: str, api_key: str, cse_id: str, cache_version: str = CACHE_VERSION) -> dict:
     """
     Fetches the #1 most relevant VISUAL image from Google Images.
     """
@@ -29,13 +107,19 @@ def cached_google_image_search(query: str, api_key: str, cse_id: str) -> dict:
             # 🟢 LOOP THROUGH CANDIDATES
             for item in data["items"]:
                 image_url = item.get("link")
+                display_link = item.get("displayLink")
+                context_link = item.get("image", {}).get("contextLink")
+
+                # Skip low-quality or spammy sources (clipart/wordpress/etc.)
+                if _is_blocked_source(image_url, display_link, context_link):
+                    continue
                 
                 # 🛡️ THE VALIDATION CHECK
                 if is_image_accessible(image_url):
                     return {
                         "title": item.get("title"),
                         "image": image_url,
-                        "link": item.get("image", {}).get("contextLink"),
+                        "link": context_link,
                         "source": item.get("displayLink"),
                         "price": None 
                     }
@@ -140,10 +224,12 @@ def is_image_accessible(url: str) -> bool:
         }
         
         # HEAD request only fetches headers (metadata), not the image body. Super fast.
-        response = requests.head(url, headers=headers, timeout=1.5)
-        
-        # 200 = OK. 
-        # We also check if the content-type is actually an image.
+        response = requests.head(url, headers=headers, timeout=1.5, allow_redirects=True)
+        if response.status_code == 200 and 'image' in response.headers.get('Content-Type', ''):
+            return True
+
+        # Some hosts block HEAD but allow GET; try a tiny streamed GET as fallback.
+        response = requests.get(url, headers=headers, timeout=2.5, stream=True, allow_redirects=True)
         if response.status_code == 200 and 'image' in response.headers.get('Content-Type', ''):
             return True
             
