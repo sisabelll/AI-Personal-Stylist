@@ -3,11 +3,15 @@
 > A multi-agent AI system that helps you discover and develop your personal style — not just what to wear today, but who you want to become.
 
 ---
-<img width="1548" height="1624" alt="main_page" src="https://github.com/user-attachments/assets/849c9602-29d8-4692-97fc-eea86d87f566" />
-The Stylist tab — context-aware outfit recommendations with an Editor's note explaining the strategy behind the look
+*The Stylist tab — context-aware outfit recommendations with an Editor's note explaining the strategy behind the look*
+
+<img width="1661" height="674" alt="Stylist 1" src="https://github.com/user-attachments/assets/bb58f665-de5b-4c6e-b51b-7bfec0c2c146" />
+<img width="1651" height="724" alt="Stylist 2" src="https://github.com/user-attachments/assets/22c94c76-363e-4e43-ab21-ae707cdf8e56" />
+
+
+*The Inspiration Board — a curated visual feed from style icons, updated automatically by the Inspiration Agent*
 
 <img width="1660" height="918" alt="inspiration_board" src="https://github.com/user-attachments/assets/d941dfae-bae0-40a7-b73c-7ebc405cf068" />
-The Inspiration Board — a curated visual feed from style icons, updated automatically by the Inspiration Agent
 
 ---
 ## Why This Exists
