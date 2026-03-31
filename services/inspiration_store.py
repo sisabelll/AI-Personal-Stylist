@@ -1,6 +1,11 @@
 from __future__ import annotations
 from typing import List, Dict, Any
 import hashlib
+import re
+from core.config import Config, get_logger
+from urllib.parse import urlparse, urlunparse
+
+logger = get_logger(__name__)
 
 class InspirationStore:
     def __init__(self, storage_service):
@@ -8,8 +13,16 @@ class InspirationStore:
 
     def _dedupe_key(self, image_url: str) -> str:
         u = (image_url or "").strip().lower()
-        return hashlib.sha1(u.encode("utf-8")).hexdigest()
+        parsed = urlparse(u)
+        # strip query params — same image often served with different params
+        clean = urlunparse((parsed.scheme, parsed.netloc, parsed.path, '', '', ''))
+        return hashlib.sha1(clean.encode("utf-8")).hexdigest()
 
+    def _is_valid_url(self, url: str) -> bool:
+        if not url:
+            return False
+        return bool(re.match(r'https?://.+\..+', url))
+    
     def upsert_items(self, user_id: str, items: List[Dict[str, Any]]) -> None:
         if not items:
             return
@@ -28,6 +41,8 @@ class InspirationStore:
                 "score": float(it.get("score") or 0.0),
                 "dedupe_key": self._dedupe_key(image_url),
             })
+
+        items = [it for it in items if self._is_valid_url(it.get("image_url", ""))]
 
         deduped = {}
         for row in payload:
@@ -68,4 +83,5 @@ class InspirationStore:
                 {"feedback": action}
             ).eq("id", item_id).eq("user_id", user_id).execute()
         except Exception:
+            logger.warning(f"[InspirationStore] log_feedback failed: {e}")
             pass  # column not yet added — hide/save still work client-side

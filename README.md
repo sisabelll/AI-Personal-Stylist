@@ -77,7 +77,7 @@ The goal isn't a single outfit. It's helping users build a coherent aesthetic id
 |---|---|
 | Frontend | Streamlit |
 | Agent orchestration | Python |
-| LLM backbone | Claude (Anthropic) |
+| LLM backbone | GPT-4o, GPT-4o-mini (OpenAI) |
 | Inspiration board | Custom UI with image curation pipeline |
 | Knowledge base | Vector store (in progress) |
 

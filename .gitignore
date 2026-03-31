@@ -8,6 +8,7 @@ __pycache__/
 data/user_profile.json
 data/conversation_state.json
 data/request_context.json
+snapshots/debug_session.json
 
 # Debug snapshots
 snapshots/
