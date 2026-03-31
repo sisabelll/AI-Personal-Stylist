@@ -1,9 +1,11 @@
 import json
-from typing import Any, Dict, Optional, List, Iterable
+from typing import Dict, Optional, List
 
-from core.config import Config
+from core.config import Config, get_logger
+
+logger = get_logger(__name__)
 from services.client import OpenAIClient
-from core.schemas import OutfitRecommendation, RefinementAnalysis, canon_category
+from core.schemas import OutfitRecommendation, canon_category
 from core.style_program_schemas import StyleProgram
 
 
@@ -67,7 +69,6 @@ class StyleStylist:
         style_program=None,
     ) -> OutfitRecommendation:
 
-        wear_category = constraints.get("wear_preference", "Unisex")
         body_type = constraints.get("body_style_essence", "General")
         color_season = constraints.get("color_season") or constraints.get("personal_color") or "General"
         season = constraints.get("season", "General")
@@ -104,6 +105,7 @@ class StyleStylist:
         items_to_remove = situational_signals.get("items_to_remove") or []
         attribute_corrections = situational_signals.get("attribute_corrections", []) or []
         owned_anchors = situational_signals.get("owned_anchors") or []
+        swap_constraints = situational_signals.get("swap_constraints") or {}
 
         # --- formality text ---
         if formality_level:
@@ -162,15 +164,16 @@ class StyleStylist:
 
         trend_context = situational_signals.get("trend_context") or {}
         trend_block = ""
-        if trend_context and trend_context.get("selected_trends"):
+        trend_cards = trend_context.get("trend_cards") or []
+        if trend_cards:
             trend_block = f"""
             TREND CONTEXT (USE SPARINGLY)
             - Trend budget: 1 trend-forward element max unless user explicitly asks for "very trendy".
             - Only use trends if they improve taste AND fit the user's color season/body lines.
             - Prefer subtle, modern updates (silhouette/texture/finishing) over gimmicks.
+            - If a card has "for_your_body_essence" or "for_your_color_season", prioritize those versions.
 
-            Selected trend notes:
-            {json.dumps(trend_context, ensure_ascii=False)}
+            {json.dumps(trend_cards, ensure_ascii=False)}
             """.strip()
 
         context_block = f"""
@@ -215,13 +218,18 @@ class StyleStylist:
             swap_out = {json.dumps(swap_requests_for_prompt, ensure_ascii=False)}
             Only categories listed in swap_out may change item identity.
 
+            SWAP ITEM REQUIREMENTS (user specified exact item type — you MUST honor these):
+            {json.dumps(swap_constraints, ensure_ascii=False) if swap_constraints else "none"}
+            When a category has a swap requirement, the new item MUST be that specific type (e.g. if Bottom requires "skirt", generate a skirt — NOT leggings, pants, or shorts).
+
             ATTRIBUTE CORRECTIONS (DO NOT CHANGE CATEGORY):
             {json.dumps(attribute_corrections, ensure_ascii=False)}
 
             RULES:
             1) If a category is NOT in swap_out, you MUST copy its item_name and search_query verbatim.
-            2) Attribute corrections DO NOT unlock swaps; they only adjust descriptors for the SAME category/type.
-            3) Clothing physics applies (OnePiece cannot coexist with Top+Bottom).
+            2) Swap requirements override your styling judgment — honor the exact item type the user asked for.
+            3) Attribute corrections DO NOT unlock swaps; they only adjust descriptors for the SAME category/type.
+            4) Clothing physics applies (OnePiece cannot coexist with Top+Bottom).
             """.strip()
         else:
             edit_block = "NEW OUTFIT MODE: Create a brand new outfit from scratch."
@@ -293,10 +301,11 @@ class StyleStylist:
             return StyleProgram(**style_program)
         raise TypeError(f"style_program must be dict or StyleProgram, got {type(style_program)}")
 
-    def _enforce_one_piece_physics(self, items: List[dict]) -> List[dict]:
+    def _enforce_one_piece_physics(self, items: List[dict], onepiece_requested: bool = False) -> List[dict]:
         """
-        If OnePiece exists, remove Top/Bottom.
-        If both Top+Bottom exist, remove OnePiece.
+        Enforce OnePiece/separates mutual exclusion.
+        - onepiece_requested=True  → keep OnePiece, remove Top/Bottom
+        - onepiece_requested=False → keep separates, remove OnePiece
         """
         cats = {canon_category(it.get("category")) for it in items}
         has_top = "Top" in cats
@@ -304,7 +313,8 @@ class StyleStylist:
         has_onepiece = "OnePiece" in cats
 
         if has_onepiece and (has_top or has_bottom):
-            # Prefer separates unless OnePiece was explicitly requested upstream.
+            if onepiece_requested:
+                return [it for it in items if canon_category(it.get("category")) not in {"Top", "Bottom"}]
             return [it for it in items if canon_category(it.get("category")) != "OnePiece"]
 
         return items
@@ -312,9 +322,9 @@ class StyleStylist:
     def _get_swap_requests_raw(self, feedback: dict) -> List[str]:
         if not feedback:
             return []
-        raw = feedback.get("swap_out_raw")
-        if raw:
-            return raw
+        # Use the expanded swap_out so the LLM prompt shows all unlocked categories
+        # (e.g. OnePiece swap → show ["Bottom", "OnePiece", "Top"] so there's no
+        # contradiction between the "Top is locked" edit rule and physics).
         return feedback.get("swap_out") or []
 
     def _stabilize_outfit(
@@ -322,14 +332,17 @@ class StyleStylist:
         new_items: List[dict],
         old_items: List[dict],
         swap_requests: List[Category],
+        onepiece_requested: bool = False,
     ) -> List[dict]:
         """
         Lock categories not in swap_requests to their old item (item_name + search_query).
-        swap_requests is already canonical TitleCase.
+        swap_requests is the expanded unlock set (may include OnePiece added for removal).
+        onepiece_requested must be passed explicitly — derived from swap_out_raw, not the
+        expanded swap_requests, so "I want pants" (which auto-adds OnePiece to unlock it)
+        doesn't mistakenly treat the request as a OnePiece swap.
         """
         raw_swaps = [canon_category(x) for x in (swap_requests or []) if canon_category(x) != "Unknown"]
         swap_set = set(raw_swaps)
-        onepiece_requested = "OnePiece" in raw_swaps
 
         old_cats = {canon_category(it.get("category")) for it in (old_items or [])}
 
@@ -342,10 +355,7 @@ class StyleStylist:
             swap_set |= {"Top", "Bottom"}
 
         old_cats = {canon_category(it.get("category")) for it in (old_items or [])}
-        print(f"🔁 Swap debug — old categories: {sorted(old_cats)}")
-        print(f"🔁 Swap debug — new requested category: {sorted(raw_swaps)}")
-        print(f"🔁 Swap debug — new categories proposed to change: {sorted(swap_set)}")
-        print(f"🔐 Stabilizing Outfit. Swap Requests (canonical): {sorted(swap_set)}")
+        logger.debug("Stabilize | old=%s requested=%s swap_set=%s", sorted(old_cats), sorted(raw_swaps), sorted(swap_set))
 
         # Canonicalize old items and index by category
         old_map: Dict[Category, dict] = {}
@@ -544,11 +554,8 @@ class StyleStylist:
                     item.search_query = f"Men's {clean_query} {negatives} -women -womens -female"
                 else:
                     item.search_query = f"{clean_query} {negatives} unisex gender-neutral"
-                print(f"📷 Aesthetic Query: {item.search_query}")
+                logger.debug("Gender query: %s", item.search_query)
 
-    # ----------------------------
-    # Keep your consult / merge utils as-is (optional)
-    # ----------------------------
     def consult(self, current_outfit_context: dict, user_question: str) -> str:
         system_prompt = f"""
         You are a collaborative Personal Stylist.
@@ -574,30 +581,3 @@ class StyleStylist:
             temperature=0.7,
         )
 
-    def merge_conversation_state(self, current_state, new_refinement_delta):
-        if "refinement_signals" not in current_state:
-            current_state["refinement_signals"] = {}
-        target_dict = current_state["refinement_signals"]
-        self._smart_update(target_dict, new_refinement_delta)
-        return current_state
-
-    def _safe_merge(self, list_a, list_b):
-        unique_items = list(list_a)
-        for item in list_b:
-            if item not in unique_items:
-                unique_items.append(item)
-        return unique_items
-
-    def _smart_update(self, current_data, new_data):
-        for key, new_val in new_data.items():
-            if key not in current_data:
-                current_data[key] = new_val
-                continue
-            old_val = current_data[key]
-            if isinstance(old_val, list) and isinstance(new_val, list):
-                current_data[key] = self._safe_merge(old_val, new_val)
-            elif isinstance(old_val, dict) and isinstance(new_val, dict):
-                self._smart_update(old_val, new_val)
-            else:
-                current_data[key] = new_val
-        return current_data

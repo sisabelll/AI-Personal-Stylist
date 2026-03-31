@@ -396,7 +396,32 @@ def coerce_trendcardlist_payload(obj: Any) -> Any:
     return obj
 
 
-def run(cadence: str = "biweekly", season: str = "2026", urls: List[str] | None = None) -> None:
+def build_discovery_queries(season: str, wear_pref: WearPreference) -> List[str]:
+    """
+    Returns search queries tuned to the season label and wear preference.
+    Prioritizes editorial/trade sources that are typically not paywalled.
+    """
+    gender = "menswear" if wear_pref == "menswear" else "womenswear"
+    queries = [
+        f"fashion trends {season} {gender}",
+        f"site:vogue.com {season} fashion trends",
+        f"site:whowhatwear.com {season} fashion trends",
+        f"Lyst Index {season} trend report",
+        f"Harper's Bazaar {season} fashion trends {gender}",
+        f"Net-a-Porter editorial {season} {gender} trends",
+        f"site:refinery29.com {season} fashion trends",
+    ]
+    if wear_pref in ("menswear", "unisex"):
+        queries.append(f"site:hypebeast.com {season} fashion trends")
+    return queries
+
+
+def run(
+    cadence: str = "biweekly",
+    season: str = "2026",
+    wear_pref: WearPreference = "womenswear",
+    urls: List[str] | None = None,
+) -> None:
     storage = StorageService()
     trends_store = TrendsStore(storage)
     cache_store = TrendSourceCacheStore(storage)
@@ -412,20 +437,13 @@ def run(cadence: str = "biweekly", season: str = "2026", urls: List[str] | None 
     # --------
     # DISCOVERY
     # --------
-    queries = [
-        f"site:vogue.com runway trend report {season}",
-        f"Vogue {season} trends",
-        f"Lyst Index {season} fashion trends report",
-        f"luxury fashion retailer editorial {season} trends Net-a-Porter",
-        f"site:hypebeast.com {season} fashion trends",
-    ]
+    queries = build_discovery_queries(season, wear_pref)
 
     if urls:
-        candidates = [{"url": u, "title": "", "snippet": "", "publisher": "", "wear_scope": "womenswear"} for u in urls]
+        candidates = [{"url": u, "title": "", "snippet": "", "publisher": "", "wear_scope": wear_pref} for u in urls]
     else:
         candidates = search_candidate_urls(google, queries, per_query=8)
 
-    wear_pref = "womenswear" # resolve_wear_preference(storage)
     candidates = filter_by_wear_preference(candidates, wear_pref)
 
     if urls:
@@ -516,13 +534,15 @@ def run(cadence: str = "biweekly", season: str = "2026", urls: List[str] | None 
         "Return valid JSON only.\n"
     )
 
+    # Only synthesize for the requested wear_pref — synthesizing all 3 triples cost
+    # with no benefit when the app only serves one segment at a time.
     counts_by_pref = {
         "womenswear": 7,
         "menswear": 5,
         "unisex": 6,
     }
 
-    for pref in ["womenswear", "menswear", "unisex"]:
+    for pref in [wear_pref]:
         scoped_notes = notes_for_pref(notes_with_scope, pref)
 
         print(f"\n🧵 Stage2: wear_pref={pref} scoped_notes={len(scoped_notes)}")
@@ -596,6 +616,7 @@ if __name__ == "__main__":
     usage = UsageGuard(storage, daily_budget_usd=0.75)  # ~ $22/month max
     run(
         cadence="biweekly",
-        season="2026"
+        season="2026",
+        wear_pref="womenswear",
         # urls=["https://www.marieclaire.com/fashion/fashion-trends-2026/"]
     )

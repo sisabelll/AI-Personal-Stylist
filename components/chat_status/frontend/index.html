@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400&display=swap');
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: transparent;
+      font-family: 'DM Sans', sans-serif;
+      padding: 8px 0 6px;
+    }
+
+    #wrap {
+      opacity: 0;
+      transition: opacity 0.25s ease;
+    }
+    #wrap.on { opacity: 1; }
+
+    /* ── Thin shimmer bar ──────────────────────────────────── */
+    #track {
+      height: 2px;
+      background: #EDE8E2;
+      border-radius: 99px;
+      overflow: hidden;
+      margin-bottom: 8px;
+    }
+
+    #fill {
+      height: 100%;
+      width: 45%;
+      border-radius: 99px;
+      background: linear-gradient(
+        90deg,
+        #EDE8E2    0%,
+        #C9A96E   35%,
+        #E2C898   50%,
+        #C9A96E   65%,
+        #EDE8E2  100%
+      );
+      background-size: 300% 100%;
+      animation: shimmer 2s ease-in-out infinite;
+    }
+
+    @keyframes shimmer {
+      0%   { background-position: 100% 0; }
+      100% { background-position: -100% 0; }
+    }
+
+    /* ── Label ─────────────────────────────────────────────── */
+    #label {
+      font-size: 0.64rem;
+      letter-spacing: 0.13em;
+      text-transform: uppercase;
+      color: #B8AFA8;
+    }
+  </style>
+</head>
+<body>
+  <div id="wrap">
+    <div id="track"><div id="fill"></div></div>
+    <span id="label"></span>
+  </div>
+
+  <script>
+    function toSL(type, extra) {
+      window.parent.postMessage({ isStreamlitMessage: true, type, ...extra }, '*');
+    }
+
+    const ro = new ResizeObserver(() => {
+      toSL('streamlit:setFrameHeight', { height: document.body.scrollHeight + 4 });
+    });
+    ro.observe(document.body);
+
+    toSL('streamlit:componentReady', { apiVersion: 1 });
+
+    window.addEventListener('message', event => {
+      if (!event.data || event.data.type !== 'streamlit:render') return;
+      const { label = '', visible = true } = event.data.args || {};
+      document.getElementById('label').textContent = label;
+      document.getElementById('wrap').className = visible ? 'on' : '';
+    });
+  </script>
+</body>
+</html>

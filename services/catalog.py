@@ -6,7 +6,7 @@ import streamlit as st
 from core.config import Config
 
 # Bump to invalidate Streamlit cache when query logic changes.
-CACHE_VERSION = "v2"
+CACHE_VERSION = "v3"
 
 BLOCKED_DOMAINS = {
     "wordpress.com",
@@ -22,6 +22,34 @@ BLOCKED_SUBSTRINGS = (
     "icon",
     "logo",
 )
+
+# TLDs that never host retail product pages
+BLOCKED_TLDS = (".edu", ".gov", ".mil")
+
+# Path/title keywords that reliably indicate a non-retail page on any domain
+BLOCKED_CONTEXT_KEYWORDS = (
+    "faculty",
+    "staff",
+    "professor",
+    "department",
+    "university",
+    "college",
+    "nonprofit",
+    "foundation",
+    "museum",
+    "hospital",
+    "clinic",
+    "welcome-new",
+    "welcomes-new",
+    "meets-the-team",
+    "about-us",
+    "our-team",
+    "/news/",
+    "/press/",
+    "/blog/",
+    "/events/",
+)
+
 
 def _is_blocked_source(url: Optional[str], display_link: Optional[str], context_link: Optional[str]) -> bool:
     for candidate in (url, context_link):
@@ -41,6 +69,16 @@ def _is_blocked_source(url: Optional[str], display_link: Optional[str], context_
                 return True
         if any(s in host for s in BLOCKED_SUBSTRINGS):
             return True
+
+    # Extra checks on context_link only (the page URL, not the image URL)
+    if context_link:
+        host = (urlparse(context_link).netloc or "").lower()
+        if any(host.endswith(tld) for tld in BLOCKED_TLDS):
+            return True
+        lowered = context_link.lower()
+        if any(kw in lowered for kw in BLOCKED_CONTEXT_KEYWORDS):
+            return True
+
     return False
 
 # ---------------------------------------------------------

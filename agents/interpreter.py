@@ -3,7 +3,9 @@ from typing import Dict, List, Union
 
 from services.client import OpenAIClient
 from core.schemas import StyleInterpretation, UserIntent, UserActionType
-from core.config import Config
+from core.config import Config, get_logger
+
+logger = get_logger(__name__)
 
 class StyleConstraintBuilder:
     def __init__(self, user_profile: Union[Dict, List[Dict]], style_rules: dict):
@@ -18,7 +20,7 @@ class StyleConstraintBuilder:
     def build(self) -> dict:
         constraints = {}
         personal_color = self.user_profile.get('color_season')
-        body_type = self.user_profile.get('body_style_essence').lower()
+        body_type = (self.user_profile.get('body_style_essence') or '').lower()
 
         prefs = self.user_profile.get('preferences', {})
         # Flatten list of keywords to a single string key if needed, or just take the first one
@@ -53,7 +55,6 @@ class ContextInterpreter:
         key = json.dumps(cache_key_data, sort_keys=True)
         
         if key in self._cache:
-            print('⚡ Using cached interpreter result.')
             return self._cache[key]
         
         system_prompt = """
@@ -104,7 +105,7 @@ class ContextInterpreter:
             self._cache[key] = result.model_dump(exclude_none=True)
             return self._cache[key]
         except Exception as e:
-            print(f"⚠️ Interpretation failed: {e}")
+            logger.warning("Interpretation failed: %s", e)
             # Return empty default object to prevent crash
             return StyleInterpretation(reasoning_steps=["Error fallback"])
 
@@ -160,9 +161,9 @@ class ContextInterpreter:
                 temperature=0.0, # Zero temp is crucial for strict logic
                 response_model=UserIntent
             )
-            print(f"🧠 Intent Reasoning for {result.action}: {result.reasoning}")
+            logger.debug("Intent: %s — %s", result.action, result.reasoning)
             return result.action  # Returns the Enum (e.g., UserActionType.ASK_QUESTION)
-            
+
         except Exception as e:
-            print(f"⚠️ Intent Classification failed: {e}")
+            logger.warning("Intent classification failed: %s", e)
             return UserActionType.MODIFY_OUTFIT # Safer default

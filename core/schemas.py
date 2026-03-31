@@ -1,6 +1,7 @@
-from pydantic import BaseModel, Field, ConfigDict, field_validator
+from pydantic import BaseModel, Field, ConfigDict, field_validator, computed_field
 from typing import Dict, List, Optional, Literal
 from enum import Enum
+import re, hashlib
 
 # --- CONFIG HELPER ---
 # OpenAI Structured Outputs REQUIRE 'extra="forbid"' to guarantee no hallucinated keys.
@@ -49,7 +50,7 @@ class HardConstraints(BaseModel):
     """Specific situational limits extracted from user input."""
     model_config = strict_config()
     
-    event_type: Optional[str] = Field(description="The specific event (e.g. 'Wedding', 'Job Interview').")
+    event_type: Optional[str] = Field(default=None, description="The specific event (e.g. 'Wedding', 'Job Interview').")
     budget: Optional[Literal["economy", "standard", "luxury"]] = Field(default="standard")
     time_of_day: Optional[Literal["day", "evening", "night"]] = Field(default="day")
     
@@ -390,3 +391,109 @@ class SourceTrendNotes(BaseModel):
     signals: List[str] = Field(default_factory=list)
     in_out: Optional[str] = None
     quality: Literal["high", "medium", "low"] = "medium"
+
+# ==========================================
+# 8. INSPIRATION SCHEMAS
+# ==========================================
+def _clean(s: str) -> str:
+    return re.sub(r"\s+", " ", (s or "").strip())
+
+class SimilarIcon(BaseModel):
+    model_config = strict_config()
+    name: str = Field(min_length=2, max_length=60, description="Person or style figure name.")
+    relevance: Literal["high", "medium", "low"] = "high"
+    reason: str = Field(min_length=10, max_length=140, description="Concrete linkage to the seeds.")
+
+    @field_validator("name", mode="before")
+    @classmethod
+    def v_name(cls, v): return _clean(v)
+
+    @field_validator("reason", mode="before")
+    @classmethod
+    def v_reason(cls, v): return _clean(v)
+
+class Motif(BaseModel):
+    """
+    Force motifs to be search-ready: include a noun + modifier.
+    """
+    model_config = strict_config()
+    phrase: str = Field(min_length=6, max_length=60, description="Searchable motif: e.g. 'longline black blazer', 'sheer black socks'.")
+    motif_type: Literal["silhouette", "fabric", "color", "styling_move", "accessory", "shoe", "print"] = "styling_move"
+    includes: List[str] = Field(default_factory=list, min_items=1, max_items=4, description="Concrete tokens to include in searches.")
+    excludes: List[str] = Field(default_factory=list, max_items=4, description="Concrete avoid tokens.")
+    confidence: int = Field(ge=1, le=5, default=3)
+
+    @field_validator("phrase", mode="before")
+    @classmethod
+    def v_phrase(cls, v): return _clean(v)
+
+    @field_validator("includes", "excludes", mode="before")
+    @classmethod
+    def v_list(cls, v):
+        if v is None: return []
+        return [_clean(x) for x in v if _clean(x)]
+
+class BrandAngle(BaseModel):
+    model_config = strict_config()
+    brand: str = Field(min_length=2, max_length=60)
+    angle: Literal["lookbook", "campaign", "runway", "street_style", "editorial", "best_sellers"] = "lookbook"
+    query_hint: str = Field(min_length=6, max_length=80, description="Short, reusable query hint.")
+    priority: int = Field(ge=1, le=3, default=2)
+
+    @field_validator("brand", "query_hint", mode="before")
+    @classmethod
+    def v_fields(cls, v): return _clean(v)
+
+class InspirationExpandLLM(BaseModel):
+    model_config = strict_config()
+    wear_preference: WearPreference
+    similar_icons: List[SimilarIcon] = Field(default_factory=list, min_items=6, max_items=10)
+    motifs: List[Motif] = Field(default_factory=list, min_items=6, max_items=10)
+    brand_angles: List[BrandAngle] = Field(default_factory=list, min_items=4, max_items=8)
+
+SourceType = Literal["icon", "brand", "motif"]
+
+def norm_tag(s: str) -> str:
+    s = re.sub(r"\s+", " ", (s or "").strip().lower())
+    s = re.sub(r"[^a-z0-9 \-\&]", "", s)
+    return s[:40]
+
+def norm_url(u: str) -> str:
+    return (u or "").strip()
+
+class InspirationItemIn(BaseModel):
+    model_config = strict_config()
+
+    source_type: SourceType
+    source_name: str = Field(min_length=2, max_length=80)
+    image_url: str = Field(min_length=10)
+    page_url: Optional[str] = None
+    caption: Optional[str] = None
+    tags: List[str] = Field(default_factory=list, max_items=12)
+    score: float = 0.0
+
+    @field_validator("source_name", mode="before")
+    @classmethod
+    def v_name(cls, v): return (v or "").strip()
+
+    @field_validator("image_url", "page_url", mode="before")
+    @classmethod
+    def v_urls(cls, v): return norm_url(v)
+
+    @field_validator("tags", mode="before")
+    @classmethod
+    def v_tags(cls, v):
+        if v is None:
+            return []
+        out = []
+        for t in v:
+            nt = norm_tag(t)
+            if nt and nt not in out:
+                out.append(nt)
+        return out[:12]
+
+    @computed_field
+    @property
+    def dedupe_key(self) -> str:
+        key = norm_url(self.image_url).lower()
+        return hashlib.sha1(key.encode("utf-8")).hexdigest()

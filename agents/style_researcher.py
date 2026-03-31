@@ -2,7 +2,10 @@ import json
 import os
 from core.schemas import StyleResearchDoc
 from services.search_tool import SearchTool
-from services.client import OpenAIClient 
+from services.client import OpenAIClient
+from core.config import get_logger
+
+logger = get_logger(__name__)
 
 class StyleResearcherAgent:
     def __init__(self, client: OpenAIClient):
@@ -54,7 +57,7 @@ class StyleResearcherAgent:
             return clean_name
 
         except Exception as e:
-            print(f"⚠️ Sanitation failed for '{raw_input}': {e}")
+            logger.warning("Sanitation failed for '%s': %s", raw_input, e)
             # If AI fails, fall back to the raw input so the app doesn't crash
             return raw_input
 
@@ -63,26 +66,24 @@ class StyleResearcherAgent:
         kb_data = self._load_kb()
         entities = kb_data.get('entities', {})
         
-        # 🟢 OPTIMIZATION 1: Fast Lookup (Raw Input)
+        # Fast Lookup (Raw Input)
         if entity_name.lower() in entities:
-            print(f"⚡ Fast Hit: Found '{entity_name}' in Knowledge Base directly.")
+            logger.debug("KB hit (raw): '%s'", entity_name)
             return entities[entity_name.lower()]
 
         # 2. If missed, THEN Sanitize (e.g. "Theory brand" -> "Theory")
         clean_name = self._sanitize_entity(entity_name)
-        
+
         # Avoid double-checking if sanitization didn't change anything
         if clean_name.lower() != entity_name.lower():
-            print(f"🧹 Sanitized '{entity_name}' -> '{clean_name}'")
-            
-            # 🟢 OPTIMIZATION 2: Smart Lookup (Clean Input)
-            # Maybe we have "Theory", just not "Theory brand"
+            logger.debug("Sanitized '%s' -> '%s'", entity_name, clean_name)
+            # Smart Lookup (Clean Input)
             if clean_name.lower() in entities:
-                print(f"✅ Found '{clean_name}' in Knowledge Base after sanitization.")
+                logger.debug("KB hit (sanitized): '%s'", clean_name)
                 return entities[clean_name.lower()]
-            
+
         # 3. Research (True Miss)
-        print(f"🔍 '{clean_name}' truly not found. Researching...")
+        logger.debug("Researching: '%s'", clean_name)
         new_data = self._perform_research(clean_name)
         
         # 4. Save to KB
@@ -92,11 +93,9 @@ class StyleResearcherAgent:
         return new_data
 
     def _perform_research(self, entity_name):
-        # A. Search
-        print(f"🔎 Researching: {entity_name}...")
         results = self.search_tool.search_web(f"{entity_name} fashion style key elements analysis 2025")
         if not results:
-            print(f"❌ No search results found for {entity_name}.")
+            logger.warning("No search results for '%s'", entity_name)
             return None
             
         context_text = "\n".join([r['content'] for r in results])

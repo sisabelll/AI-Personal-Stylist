@@ -7,6 +7,10 @@ from typing import Dict, Any, Optional, List
 import re
 from collections import Counter
 
+from core.config import get_logger
+
+logger = get_logger(__name__)
+
 # --- AGENTS & CORE ---
 from core.schemas import UserActionType, StyleInterpretation, OutfitCritique, EditPlan, EditAction, canon_category
 from core.style_program_schemas import StyleProgram
@@ -116,7 +120,8 @@ class ConversationManager:
                     status_callback("⚡ Loaded cached outfit from snapshot.")
                 return self.conversation_state.get("current_recommendation")
 
-        print(f"🚀 Starting new session: '{user_query}'")
+
+        logger.debug("Starting new session: '%s'", user_query)
 
         # 2) INTERPRET INPUT (ContextInterpreter belongs here)
         self._ux("🧠 Understanding your request…", phase="intent")
@@ -145,9 +150,7 @@ class ConversationManager:
         trend_context = self._get_trend_context(situational_signals, user_query)
         if trend_context:
             situational_signals["trend_context"] = trend_context
-            print(f"📈 Trend context attached: cards={len(trend_context.get('selected_trends', []))} tags={trend_context.get('retrieval_tags')}")
-            
-        self._log_trend_context(situational_signals)
+            logger.debug("Trend context: %d cards, tags=%s", len(trend_context.get("selected_trends", [])), trend_context.get("retrieval_tags"))
 
         final_obj, critique, draft_obj = self._generate_with_editor_pass(
             user_query=user_query,
@@ -162,7 +165,6 @@ class ConversationManager:
         recommendation = self._dump(final_obj)
 
         # 6) VISUAL SEARCH
-        print("🛍️ Searching for products...")
         if recommendation.get("outfit_options"):
             items_to_search = recommendation["outfit_options"][0].get("items", []) or []
             self.catalog.search_products_parallel(items_to_search)
@@ -181,10 +183,10 @@ class ConversationManager:
     def refine_session(self, user_feedback_text):
         """Routes the user to either 'Action' (Generate) or 'Consultation' (Chat)."""
 
-        print(f"🤔 Classifying intent: '{user_feedback_text}'")
+        logger.debug("Classifying intent: '%s'", user_feedback_text)
         self._ux("🧠 Reading between the lines…", phase="intent")
         intent_action = self.interpreter.classify_intent(user_feedback_text)
-        print(f"🚦 Route Detected: {intent_action}")
+        logger.debug("Route detected: %s", intent_action)
 
         # IMPORTANT SEPARATION:
         # - We do NOT run ContextInterpreter.interpret() here.
@@ -209,8 +211,7 @@ class ConversationManager:
 
         # --- ROUTE D: NEW OUTFIT ---
         elif intent_action == UserActionType.NEW_OUTFIT:
-            print("🧼 NEW_OUTFIT detected -> regenerate from scratch")
-
+            logger.debug("NEW_OUTFIT detected -> regenerate from scratch")
             situational_signals = self._base_signals()
             situational_signals["edit_mode"] = False
             situational_signals["force_new_outfit"] = True
@@ -218,9 +219,7 @@ class ConversationManager:
             trend_context = self._get_trend_context(situational_signals, user_feedback_text)
             if trend_context:
                 situational_signals["trend_context"] = trend_context
-                print(f"📈 Trend context attached (refine): cards={len(trend_context.get('selected_trends', []))}")
-
-            self._log_trend_context(situational_signals)
+                logger.debug("Trend context (new outfit): %d cards", len(trend_context.get("selected_trends", [])))
 
             final_obj, critique, draft_obj = self._generate_with_editor_pass(
                 user_query=user_feedback_text,
@@ -298,8 +297,9 @@ class ConversationManager:
 
         try:
             wear_pref = (self.user_profile.get("wear_preference") or "unisex").lower()
-            # optional: map "Unisex" -> "unisex"
-            season = self.current_context.get("season") or self._infer_season()
+            # Use the year-based season key ("2026") to match what trend_watcher stores.
+            # _infer_season() returns "Spring"/"Fall" etc. which doesn't match DB rows.
+            season = str(datetime.now().year)
 
             current_items = self._get_current_outfit_items() or []
 
@@ -311,14 +311,18 @@ class ConversationManager:
                 max_terms=12,
             )
 
+            body_essence = self.user_profile.get("body_style_essence")
+            color_season = self.user_profile.get("color_season") or self.user_profile.get("personal_color")
+
             retriever = TrendsRetriever(self.storage)
             cards = retriever.fetch_recent(season=season, wear_pref=wear_pref, limit=40)
 
-            ranked = simple_rank(cards, context_terms, top_k=8)
-            return build_trend_context_pack(ranked, max_cards=6)
+            ranked = simple_rank(cards, context_terms, top_k=8,
+                                 body_essence=body_essence, color_season=color_season)
+            return build_trend_context_pack(ranked, max_cards=6,
+                                            body_essence=body_essence, color_season=color_season)
         except Exception as e:
-            print(f"⚠️ Trend retrieval failed: {e}")
-            print(traceback.format_exc())
+            logger.warning("Trend retrieval failed: %s\n%s", e, traceback.format_exc())
             return {}
 
     def _generate_with_editor_pass(
@@ -337,9 +341,8 @@ class ConversationManager:
         )
         signals = dict(situational_signals)
 
-        print("\n🧵 ================= EDITOR PIPELINE =================")
-
         # 1) Draft
+        logger.debug("Editor pipeline start")
         self._ux("🎨 Balancing silhouette, color, and vibe…", phase="generation")
         draft_obj = self.stylist.recommend(
             constraints=self.user_profile,
@@ -350,12 +353,11 @@ class ConversationManager:
         )
         draft_obj = self._postprocess_outfit(draft_obj, current_outfit_items, signals)
 
+        logger.debug("Draft generated")
         try:
             self._qa_physics(draft_obj)
         except Exception as e:
-            print(f"⚠️ QA Physics check failed (draft): {e}")
-
-        print("🟡 Draft generated")
+            logger.warning("QA Physics check failed (draft): %s", e)
 
         # 1.5) Swap compliance check (edit mode)
         swap_violations = {"missing": [], "forbidden": [], "unchanged": []}
@@ -366,40 +368,44 @@ class ConversationManager:
             swap_violations = self._check_swap_requirements(
                 outfit_obj=draft_obj,
                 current_outfit_items=current_outfit_items,
-                swap_out=swap_out,
                 swap_out_raw=swap_out_raw,
             )
             if swap_violations["missing"] or swap_violations["forbidden"] or swap_violations["unchanged"]:
-                print(
-                    "⚠️ Swap compliance failed (draft). "
-                    f"Missing: {swap_violations['missing']} "
-                    f"Forbidden: {swap_violations['forbidden']} "
-                    f"Unchanged: {swap_violations['unchanged']}"
+                logger.warning(
+                    "Swap compliance failed (draft). Missing: %s Forbidden: %s Unchanged: %s",
+                    swap_violations["missing"], swap_violations["forbidden"], swap_violations["unchanged"],
                 )
 
-        # 2) Critique (SAFE)
-        try:
-            self._ux("✍️ Checking if this outfit reaches editor-level quality…", phase="editor")
-            critique = self.editor.critique(
-                outfit=draft_obj,
-                user_profile=self.user_profile,
-                situational_signals=signals,
-            )
-        except Exception as e:
-            print(f"⚠️ Editor critique failed: {e}")
-            print(traceback.format_exc())
+        # 2) Critique — skipped in edit mode to save 1-2 LLM calls per refinement.
+        # Swap compliance (step 1.5) already handles structural violations; the taste
+        # critique adds little value when the user just wants one specific item changed.
+        if signals.get("edit_mode"):
             critique = OutfitCritique(
-                score=7,
+                score=9,
                 verdict="accept",
-                summary="Editor unavailable; returning draft.",
-                main_issue="Editor error",
-                plan=EditPlan(hero="N/A", actions=[]),
+                summary="Edit mode: taste critique skipped.",
+                main_issue="none",
+                plan=EditPlan(hero="unchanged", actions=[]),
             )
+        else:
+            try:
+                self._ux("✍️ Checking if this outfit reaches editor-level quality…", phase="editor")
+                critique = self.editor.critique(
+                    outfit=draft_obj,
+                    user_profile=self.user_profile,
+                    situational_signals=signals,
+                )
+            except Exception as e:
+                logger.warning("Editor critique failed: %s\n%s", e, traceback.format_exc())
+                critique = OutfitCritique(
+                    score=7,
+                    verdict="accept",
+                    summary="Editor unavailable; returning draft.",
+                    main_issue="Editor error",
+                    plan=EditPlan(hero="N/A", actions=[]),
+                )
 
-        print("🧠 Editor critique")
-        print(f"   Score: {critique.score}/10")
-        print(f"   Verdict: {critique.verdict}")
-        print(f"   Main issue: {critique.main_issue}")
+        logger.debug("Editor critique — score=%s verdict=%s issue=%s", critique.score, critique.verdict, critique.main_issue)
 
         # --- Gate editor swaps in edit_mode to only allowed categories ---
         fb = signals.get("feedback") or {}
@@ -453,8 +459,7 @@ class ConversationManager:
         final_obj = draft_obj
 
         if critique.verdict == "revise" and critique.score <= revise_threshold and critique.plan.actions:
-            print("🔁 Revision TRIGGERED")
-
+            logger.debug("Revision triggered")
             self._ux("✍️ Refining the outfit for stronger impact…", phase="editor")
 
             revised_signals = dict(signals)
@@ -468,16 +473,16 @@ class ConversationManager:
                 style_program=style_program,
             )
             final_obj = self._postprocess_outfit(final_obj, current_outfit_items, revised_signals)
-            print("✅ Revision applied")
+            logger.debug("Revision applied")
         else:
+            logger.debug("No revision needed")
             self._ux("✍️ Editor approved — locking in the look.", phase="editor")
-            print("⏭️ No revision needed")
 
         # ✅ Check FINAL, not draft again
         try:
             self._qa_physics(final_obj)
         except Exception as e:
-            print(f"⚠️ QA Physics check failed (final): {e}")
+            logger.warning("QA Physics check failed (final): %s", e)
 
         # 4) Log revisions (SAFE)
         self.conversation_state.setdefault("revisions", []).append(
@@ -512,16 +517,15 @@ class ConversationManager:
                     "lessons": lessons,
                 }
                 self.storage.insert_styling_revision(row)
-                print(f"✅ Stored in Supabase (accepted={accepted}, tags={len(style_tags)}, lessons={len(lessons)})")
+                logger.debug("Stored revision in Supabase (accepted=%s, tags=%d, lessons=%d)", accepted, len(style_tags), len(lessons))
             except Exception as e:
-                print(f"⚠️ Supabase insert failed: {e}")
+                logger.warning("Supabase insert failed: %s", e)
 
-        print("🧵 =============== END EDITOR PIPELINE ===============\n")
         return final_obj, critique, draft_obj
 
     def _refine_look(self, user_text: str):
         """The 'Action' function for modification."""
-        print(f"🔄 Refining look based on: '{user_text}'")
+        logger.debug("Refining look: '%s'", user_text)
 
         current_data = self.conversation_state.get("current_recommendation", {}) or {}
         current_outfit_items = self._get_current_outfit_items() or []
@@ -568,8 +572,6 @@ class ConversationManager:
                 if tok_cat != "Unknown":
                     requested_cats.add(tok_cat)
         locked_cats |= requested_cats
-        if not swap_set:
-            swap_set = {c for c in old_cats if c not in locked_cats and c != "Unknown"}
         swap_set = self._expand_swap_set(old_cats, swap_set)
 
         feedback_analysis["swap_out"] = sorted(swap_set)
@@ -587,6 +589,7 @@ class ConversationManager:
                 "items_to_remove": self.current_context.get("items_to_remove", []) or [],
                 "requested_items": self.current_context.get("requested_items", []) or [],
                 "attribute_corrections": feedback_analysis.get("attribute_corrections", []) or [],
+                "swap_constraints": feedback_analysis.get("swap_constraints", {}) or {},
                 "edit_mode": True,
                 "owned_anchors": owned_anchors,
             }
@@ -594,10 +597,9 @@ class ConversationManager:
         trend_context = self._get_trend_context(situational_signals, user_text)
         if trend_context:
             situational_signals["trend_context"] = trend_context
-            print(f"📈 Trend context attached (refine): cards={len(trend_context.get('selected_trends', []))}")
+            logger.debug("Trend context (refine): %d cards", len(trend_context.get("selected_trends", [])))
 
         # 6) Generate with editor pass
-        self._log_trend_context(situational_signals)
         self._ux("🎨 Updating the outfit…", phase="generation")
         final_obj, critique, draft_obj = self._generate_with_editor_pass(
             user_query=user_text,
@@ -614,11 +616,8 @@ class ConversationManager:
         # 7) Product search (UX-visible)
         if new_recommendation.get("outfit_options"):
             items = new_recommendation["outfit_options"][0].get("items", []) or []
-
-            print("🛍️ refine search items:")
             for it in items:
-                print(" -", it.get("category"), "|", it.get("item_name"), "|", it.get("search_query"))
-
+                logger.debug("Search item: %s | %s | %s", it.get("category"), it.get("item_name"), it.get("search_query"))
             self._ux("🛍️ Finding matching items…", phase="search")
             self.catalog.search_products_parallel(items)
 
@@ -685,11 +684,11 @@ class ConversationManager:
                 tags, _ = self._derive_tags_and_lessons(user_query, situational_signals, critique_obj=None, final_obj=None)
 
                 query_tags = self._select_retrieval_tags(tags, k=3)
-                print(f"🔎 Retrieval tags: {query_tags}")
+                logger.debug("Retrieval tags: %s", query_tags)
 
                 resp = self.storage.fetch_accepted_revisions(user_id=user_id, tags=query_tags, limit=5)
                 rows = getattr(resp, "data", None) or (resp.get("data") if isinstance(resp, dict) else []) or []
-                print(f"📚 Retrieved {len(rows)} accepted revisions")
+                logger.debug("Retrieved %d accepted revisions", len(rows))
 
                 for r in rows:
                     learned += (r.get("lessons") or [])
@@ -699,11 +698,9 @@ class ConversationManager:
                     if l and l not in deduped:
                         deduped.append(l)
                 learned = deduped
-
-                print(f"🧠 Injecting learned lessons: {learned[:5]}")
+                logger.debug("Injecting %d learned lessons", len(learned))
             except Exception as e:
-                print(f"⚠️ Fetch revisions failed: {e}")
-                print(traceback.format_exc())
+                logger.warning("Fetch revisions failed: %s\n%s", e, traceback.format_exc())
 
         editorial_nos = (base_editorial_nos + learned)[:10]
         hero_strategy = "Choose exactly one hero move (proportion OR texture OR accessory) and keep the rest quiet."
@@ -721,12 +718,11 @@ class ConversationManager:
             trend_budget=1,
         )
 
-    def _check_swap_requirements(self, outfit_obj, current_outfit_items: list, swap_out: list, swap_out_raw: Optional[list] = None) -> dict:
+    def _check_swap_requirements(self, outfit_obj, current_outfit_items: list, swap_out_raw: Optional[list] = None) -> dict:
         """
         Validate that output matches swap intent. Returns {"missing": [...], "forbidden": [...], "unchanged": [...]}.
         """
         old_cats = {canon_category((it.get("category") or "").strip()) for it in (current_outfit_items or [])}
-        swap_set = {canon_category(s) for s in (swap_out or []) if s}
         swap_raw_set = {canon_category(s) for s in (swap_out_raw or []) if s}
 
         required = set()
@@ -828,43 +824,83 @@ class ConversationManager:
         feedback = situational_signals.get("feedback") or {}
         owned_anchors = situational_signals.get("owned_anchors") or []
         attribute_corrections = situational_signals.get("attribute_corrections") or []
+        swap_constraints = situational_signals.get("swap_constraints") or {}
 
-        swap_requests_raw = feedback.get("swap_out_raw") or feedback.get("swap_out") or []
+        # Use the expanded swap_out for the stabilizer — this unlocks Top/Bottom/OnePiece
+        # when template switching (e.g. dress→pants auto-expands to unlock OnePiece for removal).
+        swap_requests_raw = feedback.get("swap_out") or []
         swap_requests = sorted({canon_category(x) for x in swap_requests_raw if canon_category(x) != "Unknown"})
         forced_from_anchors = sorted({canon_category(a.get("target_category")) for a in (owned_anchors or []) if canon_category(a.get("target_category")) != "Unknown"})
         swap_requests_for_prompt = sorted(set(swap_requests) | set(forced_from_anchors))
+
+        # onepiece_requested must reflect what the user EXPLICITLY asked for, not the
+        # auto-expanded set. "I want pants" expands to include OnePiece (so it can be
+        # removed), but onepiece_requested=True would wrongly drop Top+Bottom.
+        swap_raw_explicit = {canon_category(x) for x in (feedback.get("swap_out_raw") or []) if canon_category(x) != "Unknown"}
+        onepiece_requested = "OnePiece" in swap_raw_explicit
+
+        # Pre-remove OnePiece when user explicitly wants separates from a OnePiece outfit.
+        # If LLM keeps the dress, the stabilizer sees "OnePiece" in final_by_cat and won't
+        # add Top+Bottom. Physics then removes it post-stabilize, leaving nothing.
+        # Removing it here forces the stabilizer fallback to fire and fill in Top+Bottom.
+        separates_requested = bool(swap_raw_explicit & {"Top", "Bottom"})
+        logger.debug("postprocess | swap_raw_explicit=%s separates_requested=%s onepiece_requested=%s", swap_raw_explicit, separates_requested, onepiece_requested)
+        logger.debug("postprocess | LLM item categories: %s", [canon_category(it.get("category")) for it in items])
+        if separates_requested and current_outfit_items:
+            old_has_onepiece = any(
+                canon_category((it.get("category") or "")) == "OnePiece"
+                for it in current_outfit_items
+            )
+            if old_has_onepiece:
+                items = [it for it in items if canon_category(it.get("category")) != "OnePiece"]
+                logger.debug("postprocess | pre-removed OnePiece, remaining: %s", [canon_category(it.get("category")) for it in items])
 
         # 1) Apply owned anchors FIRST (forces the category)
         items = self.stylist._apply_owned_anchors(items, owned_anchors)
         items = self.stylist._dedupe_one_per_category(items)
 
-        # 2) Stabilize (locks)
+        # 2) Stabilize (locks all categories not in swap_requests_for_prompt)
         if current_outfit_items:
             items = self.stylist._stabilize_outfit(
                 new_items=items,
                 old_items=current_outfit_items,
                 swap_requests=swap_requests_for_prompt,
+                onepiece_requested=onepiece_requested,
             )
             items = self.stylist._dedupe_one_per_category(items)
 
-        # 3) Enforce physics
-        items = self.stylist._enforce_one_piece_physics(items)
+        # 3) Enforce physics once — after stabilize has correctly unlocked categories
+        items = self.stylist._enforce_one_piece_physics(items, onepiece_requested=onepiece_requested)
         items = self.stylist._dedupe_one_per_category(items)
 
-        # 4) Stabilize again (reassert locks after physics)
-        if current_outfit_items:
-            items = self.stylist._stabilize_outfit(
-                new_items=items,
-                old_items=current_outfit_items,
-                swap_requests=swap_requests_for_prompt,
-            )
-            items = self.stylist._enforce_one_piece_physics(items)
-            items = self.stylist._dedupe_one_per_category(items)
-
-        # 5) Apply attribute corrections last (no structure changes)
+        # 4) Apply attribute corrections last (no structure changes)
         items = self.stylist._apply_attribute_corrections(items, attribute_corrections, allowed_swap_categories=swap_requests_for_prompt)
 
-        option0.items = [item_cls(**it) for it in items]
+        # 5) Enforce swap constraints: if user requested a specific item type (e.g. "skirt"),
+        # patch item_name and search_query so image search reflects it even if LLM drifted.
+        if swap_constraints:
+            for item in items:
+                cat = canon_category(item.get("category"))
+                required_terms = swap_constraints.get(cat)
+                if not required_terms:
+                    continue
+                name = (item.get("item_name") or "").lower()
+                # Only patch if the item_name doesn't already reflect the requested type
+                if not any(t.lower() in name for t in required_terms):
+                    primary = required_terms[0]
+                    item["item_name"] = f"{primary.title()} {item.get('item_name') or ''}".strip()
+                sq = item.get("search_query") or ""
+                for t in required_terms:
+                    if t.lower() not in sq.lower():
+                        sq = f"{t} {sq}".strip()
+                item["search_query"] = sq
+
+        logger.debug("postprocess | final categories: %s", [it.get("category") for it in items])
+        try:
+            option0.items = [item_cls(**it) for it in items]
+        except Exception as e:
+            logger.error("Outfit reconstruction failed: %s | items: %s", e, items)
+            raise
 
         # Postprocess search queries once after final structure
         wear_category = self.user_profile.get("wear_preference", "Unisex")
@@ -1021,8 +1057,7 @@ class ConversationManager:
 
         tags_list = sorted(tags)[:20]
         lessons_list = dedupe_preserve(lessons)[:8]
-
-        print(f"🏷️ Derived tags: {tags_list[:10]}")
+        logger.debug("Derived tags: %s", tags_list[:10])
         return tags_list, lessons_list
 
     def _select_retrieval_tags(self, tags: list[str], k: int = 2) -> list[str]:
@@ -1057,8 +1092,7 @@ class ConversationManager:
 
         scored.sort(key=lambda x: x[0], reverse=True)
         selected = [t for score, t in scored if score > 0][:k]
-
-        print(f"🔎 Retrieval tags: {selected}")
+        logger.debug("Selected retrieval tags: %s", selected)
         return selected
 
     def _qa_physics(self, recommendation_obj):
@@ -1071,16 +1105,6 @@ class ConversationManager:
         if "OnePiece" in cats and ("Top" in cats or "Bottom" in cats):
             raise ValueError("Physics fail: OnePiece cannot coexist with Top/Bottom.")
         
-    def _log_trend_context(self, signals: dict):
-        tc = signals.get("trend_context") or {}
-        if not tc:
-            print("📈 Trend context: (none)")
-            return
-        cards = tc.get("selected_trends") or []
-        print(f"📈 Trend context: cards={len(cards)} tags={tc.get('retrieval_tags')}")
-        for c in cards[:3]:
-            print(f"   - {c.get('trend_name')} | borrow={c.get('what_to_borrow')} | avoid={c.get('avoid')}")
-
     # ====================================================
     # 🛠️ UTILITIES & SNAPSHOTS
     # ====================================================
@@ -1130,9 +1154,8 @@ class ConversationManager:
         try:
             with open(filepath, "w") as f:
                 json.dump(data, f, indent=2)
-            print(f"📸 Snapshot saved to {filepath}")
-        except Exception as e:
-            print(f"⚠️ Snapshot failed: {e}")
+        except Exception:
+            pass
 
     def _load_snapshot(self, filename="debug_session.json"):
         filepath = os.path.join(self.snapshot_dir, filename)

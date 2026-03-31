@@ -1,8 +1,10 @@
 import json
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
-from core.config import Config
+from core.config import Config, get_logger
 from core.schemas import RefinementAnalysis, canon_category
+
+logger = get_logger(__name__)
 
 
 class RefinementAgent:
@@ -76,6 +78,7 @@ class RefinementAgent:
         directives = data.get("item_directives") or []
 
         swap_out: List[str] = []
+        swap_constraints: Dict[str, List[str]] = {}  # category -> must_include for swap_category intents
         owned_anchors: List[Dict[str, Any]] = []
         attribute_corrections: List[Dict[str, Any]] = []
 
@@ -102,6 +105,11 @@ class RefinementAgent:
                 if target not in seen_swap:
                     swap_out.append(target)
                     seen_swap.add(target)
+                if must_include:
+                    swap_constraints.setdefault(target, [])
+                    for term in must_include:
+                        if term not in swap_constraints[target]:
+                            swap_constraints[target].append(term)
 
             elif intent == "attribute_update":
                 # This does NOT unlock swap_out; it just adjusts descriptors
@@ -144,6 +152,7 @@ class RefinementAgent:
                 pass
 
         data["swap_out"] = swap_out
+        data["swap_constraints"] = swap_constraints
         data["owned_anchors"] = owned_anchors
         data["attribute_corrections"] = attribute_corrections
         return data
@@ -241,15 +250,13 @@ class RefinementAgent:
                 if inferred:
                     data["swap_out"] = sorted(inferred)
 
-            print("🧾 directives:", data.get("item_directives"))
-            print("🧾 derived swap_out:", data.get("swap_out"))
-            print("🧾 derived owned_anchors:", data.get("owned_anchors"))
-            print("🧾 derived attribute_corrections:", data.get("attribute_corrections"))
-
+            logger.debug("directives=%s swap_out=%s owned_anchors=%s attribute_corrections=%s",
+                         data.get("item_directives"), data.get("swap_out"),
+                         data.get("owned_anchors"), data.get("attribute_corrections"))
             return data
 
         except Exception as e:
-            print(f"❌ Refiner Error: {e}")
+            logger.error("Refiner error: %s", e)
             return {
                 "make_more": [],
                 "make_less": [],
