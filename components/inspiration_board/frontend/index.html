@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500&display=swap');
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: transparent;
+      font-family: 'DM Sans', sans-serif;
+      padding: 2px 0 16px;
+    }
+
+    /* ── Header ─────────────────────────────────────────── */
+    #header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 18px;
+    }
+    .eyebrow {
+      font-size: 0.62rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: #C9A96E;
+      margin-bottom: 4px;
+    }
+    .sub { font-size: 0.78rem; color: #9C9590; }
+
+    #btn-refresh {
+      background: transparent;
+      border: 1px solid #E5DDD5;
+      border-radius: 8px;
+      padding: 0.3rem 0.9rem;
+      font-size: 0.74rem;
+      color: #6A6560;
+      cursor: pointer;
+      font-family: 'DM Sans', sans-serif;
+      letter-spacing: 0.05em;
+      flex-shrink: 0;
+      transition: border-color 0.15s, color 0.15s;
+    }
+    #btn-refresh:hover { border-color: #C9A96E; color: #9B7740; }
+
+    /* ── Masonry board ──────────────────────────────────── */
+    #board { columns: 4; column-gap: 10px; }
+    @media (max-width: 960px) { #board { columns: 3; } }
+    @media (max-width: 640px) { #board { columns: 2; } }
+
+    /* ── Card ───────────────────────────────────────────── */
+    .pin {
+      break-inside: avoid;
+      margin-bottom: 10px;
+      border-radius: 16px;
+      overflow: hidden;
+      position: relative;
+      background: #ede7df;
+      cursor: default;
+      transition: box-shadow 0.2s ease;
+    }
+    .pin:hover { box-shadow: 0 8px 24px rgba(0,0,0,0.18); }
+
+    .pin img {
+      width: 100%;
+      display: block;
+      opacity: 0;
+      transition: opacity 0.4s ease;
+    }
+    .pin img.loaded { opacity: 1; }
+
+    /* ── Overlay ─────────────────────────────────────────
+       Transparent background — image stays bright.
+       Gradient only at the top and bottom strips.        */
+    .overlay {
+      position: absolute;
+      inset: 0;
+      background: transparent;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      opacity: 0;
+      transition: opacity 0.18s ease;
+      pointer-events: none;   /* passthrough when hidden */
+    }
+    .overlay.visible {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    /* Top strip — gradient for the hide button */
+    .overlay-top {
+      padding: 10px;
+      background: linear-gradient(rgba(0,0,0,0.30), transparent);
+      display: flex;
+      justify-content: flex-end;
+      border-radius: 16px 16px 0 0;
+    }
+
+    /* Bottom strip — gradient for save + tags */
+    .overlay-bottom {
+      padding: 10px;
+      background: linear-gradient(transparent, rgba(0,0,0,0.40));
+      display: flex;
+      align-items: flex-end;
+      gap: 6px;
+      border-radius: 0 0 16px 16px;
+    }
+
+    /* ── Buttons ────────────────────────────────────────── */
+    .pin-btn {
+      background: rgba(255,255,255,0.22);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      border: none;
+      border-radius: 50%;
+      width: 34px;
+      height: 34px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: #fff;
+      font-size: 15px;
+      line-height: 1;
+      text-decoration: none;
+      flex-shrink: 0;
+      transition: background 0.15s, transform 0.12s;
+    }
+    .pin-btn:hover    { background: rgba(255,255,255,0.40); transform: scale(1.1); }
+    .pin-btn.saved    { background: #C9A96E; }
+    .pin-btn.saved:hover { background: #b8924f; }
+
+    /* ── Tag pills ──────────────────────────────────────── */
+    .tag {
+      font-size: 0.58rem;
+      letter-spacing: 0.06em;
+      background: rgba(255,255,255,0.22);
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
+      color: #fff;
+      padding: 2px 8px;
+      border-radius: 99px;
+      white-space: nowrap;
+    }
+
+    /* ── Source label ───────────────────────────────────── */
+    .source {
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      padding: 20px 10px 8px;
+      background: linear-gradient(transparent, rgba(0,0,0,0.32));
+      pointer-events: none;
+      transition: opacity 0.18s ease;
+      border-radius: 0 0 16px 16px;
+    }
+    .source.hidden { opacity: 0; }
+    .source span {
+      color: rgba(255,255,255,0.62);
+      font-size: 0.58rem;
+      letter-spacing: 0.08em;
+    }
+
+    /* ── Empty state ────────────────────────────────────── */
+    #empty {
+      display: none;
+      padding: 3rem;
+      text-align: center;
+      color: #9C9590;
+      font-size: 0.88rem;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="header">
+    <div>
+      <div class="eyebrow">✦ &nbsp; Inspiration Board</div>
+      <div class="sub" id="sub-label"></div>
+    </div>
+    <button id="btn-refresh" type="button">↻ &nbsp; Refresh</button>
+  </div>
+
+  <div id="board"></div>
+  <div id="empty">No items to show · try refreshing</div>
+
+  <script>
+    // ── Streamlit wire protocol ────────────────────────────
+
+    function toSL(type, extra) {
+      window.parent.postMessage({ isStreamlitMessage: true, type, ...extra }, '*');
+    }
+
+    const ro = new ResizeObserver(() => {
+      toSL('streamlit:setFrameHeight', { height: document.body.scrollHeight + 8 });
+    });
+    ro.observe(document.body);
+
+    function sendValue(value) {
+      toSL('streamlit:setComponentValue', { value, dataType: 'json' });
+    }
+
+    toSL('streamlit:componentReady', { apiVersion: 1 });
+
+    // ── App state ─────────────────────────────────────────
+
+    const dismissed = new Set();
+    const saved     = new Set();
+
+    // ── Build one card ────────────────────────────────────
+
+    function buildPin(item) {
+      const pin = document.createElement('div');
+      pin.className = 'pin';
+
+      // Image — always in normal flow, fades in on load
+      const img = document.createElement('img');
+      img.alt = item.caption || '';
+      img.addEventListener('load',  () => img.classList.add('loaded'));
+      img.addEventListener('error', () => pin.remove());
+      img.src = item.src;
+      pin.appendChild(img);
+
+      // Overlay (transparent bg — only top/bottom strips are gradient)
+      const overlay = document.createElement('div');
+      overlay.className = 'overlay';
+
+      // ── Top strip: hide button ──
+      const top = document.createElement('div');
+      top.className = 'overlay-top';
+      const hideBtn = document.createElement('button');
+      hideBtn.type = 'button';
+      hideBtn.className = 'pin-btn';
+      hideBtn.title = 'Hide';
+      hideBtn.style.fontSize = '12px';
+      hideBtn.textContent = '✕';
+      hideBtn.addEventListener('click', () => {
+        dismissed.add(item.id);
+        pin.style.transition = 'opacity 0.2s, transform 0.2s';
+        pin.style.opacity = '0';
+        pin.style.transform = 'scale(0.94)';
+        setTimeout(() => { pin.remove(); updateSub(); }, 200);
+        sendValue({ action: 'hide', id: item.id });
+      });
+      top.appendChild(hideBtn);
+      overlay.appendChild(top);
+
+      // ── Bottom strip: tags + save + link ──
+      const bottom = document.createElement('div');
+      bottom.className = 'overlay-bottom';
+
+      const tagWrap = document.createElement('div');
+      tagWrap.style.cssText = 'flex:1;display:flex;flex-wrap:wrap;gap:4px;overflow:hidden;max-height:44px;';
+      (item.tags || []).slice(0, 3).forEach(t => {
+        const tag = document.createElement('span');
+        tag.className = 'tag';
+        tag.textContent = t;
+        tagWrap.appendChild(tag);
+      });
+      bottom.appendChild(tagWrap);
+
+      const actions = document.createElement('div');
+      actions.style.cssText = 'display:flex;gap:6px;flex-shrink:0;';
+
+      if (item.page_url) {
+        const link = document.createElement('a');
+        link.className = 'pin-btn';
+        link.href = item.page_url;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        link.title = 'Open source';
+        link.textContent = '↗';
+        actions.appendChild(link);
+      }
+
+      const isSaved = saved.has(item.id);
+      const saveBtn = document.createElement('button');
+      saveBtn.type = 'button';
+      saveBtn.className = 'pin-btn' + (isSaved ? ' saved' : '');
+      saveBtn.title = 'Save to style DNA';
+      saveBtn.style.fontSize = '16px';
+      saveBtn.textContent = isSaved ? '♥' : '♡';
+      saveBtn.addEventListener('click', () => {
+        if (saved.has(item.id)) return;   // already saved, no-op
+        saved.add(item.id);
+        saveBtn.classList.add('saved');
+        saveBtn.textContent = '♥';
+        sendValue({ action: 'save', id: item.id });
+      });
+      actions.appendChild(saveBtn);
+      bottom.appendChild(actions);
+      overlay.appendChild(bottom);
+      pin.appendChild(overlay);
+
+      // Source label
+      let sourceEl = null;
+      if (item.source_name) {
+        sourceEl = document.createElement('div');
+        sourceEl.className = 'source';
+        const span = document.createElement('span');
+        span.textContent = item.source_name;
+        sourceEl.appendChild(span);
+        pin.appendChild(sourceEl);
+      }
+
+      // Hover: JS events (reliable across all iframe contexts)
+      pin.addEventListener('mouseenter', () => {
+        overlay.classList.add('visible');
+        if (sourceEl) sourceEl.classList.add('hidden');
+      });
+      pin.addEventListener('mouseleave', () => {
+        overlay.classList.remove('visible');
+        if (sourceEl) sourceEl.classList.remove('hidden');
+      });
+
+      return pin;
+    }
+
+    // ── Board render ──────────────────────────────────────
+
+    function updateSub() {
+      const count = document.getElementById('board').querySelectorAll('.pin').length;
+      document.getElementById('sub-label').textContent = count === 0
+        ? '0 items'
+        : `${count} items · save what speaks to you, hide what doesn't`;
+      if (count === 0) {
+        document.getElementById('board').style.display = 'none';
+        document.getElementById('empty').style.display = 'block';
+      }
+    }
+
+    function renderBoard(items) {
+      const board = document.getElementById('board');
+      const empty = document.getElementById('empty');
+      board.innerHTML = '';
+
+      const visible = items.filter(it => !dismissed.has(it.id));
+      if (visible.length === 0) {
+        board.style.display = 'none';
+        empty.style.display = 'block';
+        document.getElementById('sub-label').textContent = '0 items';
+        return;
+      }
+
+      board.style.display = '';
+      empty.style.display = 'none';
+      document.getElementById('sub-label').textContent =
+        `${visible.length} items · save what speaks to you, hide what doesn't`;
+
+      visible.forEach(item => board.appendChild(buildPin(item)));
+    }
+
+    // ── Wiring ────────────────────────────────────────────
+
+    document.getElementById('btn-refresh').addEventListener('click', () => {
+      sendValue({ action: 'refresh', id: null });
+    });
+
+    window.addEventListener('message', event => {
+      if (!event.data || event.data.type !== 'streamlit:render') return;
+      renderBoard((event.data.args || {}).items || []);
+    });
+  </script>
+</body>
+</html>

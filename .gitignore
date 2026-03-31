@@ -2,3 +2,16 @@
 __pycache__/
 *.pyc
 .venv/
+.streamlit/secrets.toml
+
+# Runtime state (contains personal data or session-specific content)
+data/user_profile.json
+data/conversation_state.json
+data/request_context.json
+snapshots/debug_session.json
+
+# Debug snapshots
+snapshots/
+
+# Claude local settings
+.claude/
