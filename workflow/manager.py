@@ -37,6 +37,8 @@ class ConversationManager:
         # 1. Initialize Static Rules (The "Librarian")
         builder = StyleConstraintBuilder(user_profile, style_rules)
         self.static_constraints = builder.build()
+        # Enrich user_profile with resolved guidelines so agents receive full rule objects
+        self._enriched_profile = {**self.user_profile, **self.static_constraints}
 
         # 2. Initialize Agents
         self.interpreter = ContextInterpreter(client)
@@ -81,14 +83,26 @@ class ConversationManager:
 
     def _base_signals(self) -> Dict[str, Any]:
         hard = self.current_context.get("hard_constraints", {}) or {}
+
+        # The interpreter stores formality_level, social_tone, aesthetic_bias, vibe_modifiers
+        # at the top level of current_context (via _smart_update), NOT nested under a
+        # "style_interpretation" key. Build the nested dict the stylist expects from those
+        # top-level fields so they actually reach the prompt.
+        style_interp = self.current_context.get("style_interpretation") or {}
+        if not style_interp:
+            style_interp = {
+                k: self.current_context[k]
+                for k in ("formality_level", "social_tone", "aesthetic_bias", "vibe_modifiers")
+                if self.current_context.get(k)
+            }
+
         return {
             "external_inspiration": self.current_context.get("external_style_inspiration", {}) or {},
             "event_type": hard.get("event_type") or self.current_context.get("event_type"),
             "weather": hard.get("weather"),
             "location": self.user_profile.get("location_city", "NYC"),
             "aesthetic": self.current_context.get("aesthetic_bias", "clean_chic"),
-            # optional passthrough for stylist prompt/debug
-            "style_interpretation": self.current_context.get("style_interpretation", {}) or {},
+            "style_interpretation": style_interp,
         }
 
     def _get_current_outfit_items(self) -> List[Dict[str, Any]]:
@@ -121,7 +135,8 @@ class ConversationManager:
                 return self.conversation_state.get("current_recommendation")
 
 
-        logger.debug("Starting new session: '%s'", user_query)
+        logger.info("─── NEW SESSION ───────────────────────────────────")
+        logger.info("User query: %s", user_query)
 
         # 2) INTERPRET INPUT (ContextInterpreter belongs here)
         self._ux("🧠 Understanding your request…", phase="intent")
@@ -129,6 +144,9 @@ class ConversationManager:
         interpretation: StyleInterpretation = self.interpreter.interpret(user_request_context, user_query)
         new_signals = self._dump(interpretation) or {}
         self.current_context = self._smart_update(self.current_context, new_signals)
+        logger.info("Interpretation: event=%s formality=%s aesthetic=%s vibes=%s",
+                    new_signals.get("event_type"), new_signals.get("formality_level"),
+                    new_signals.get("aesthetic_bias"), new_signals.get("vibe_modifiers"))
 
         # 3) RESEARCHER (Check for External Inspiration)
         self._check_and_run_research(status_callback)
@@ -167,6 +185,9 @@ class ConversationManager:
         # 6) VISUAL SEARCH
         if recommendation.get("outfit_options"):
             items_to_search = recommendation["outfit_options"][0].get("items", []) or []
+            logger.info("Image search — %d items:", len(items_to_search))
+            for it in items_to_search:
+                logger.info("  [%s] %s | query: %s", it.get("category"), it.get("item_name"), it.get("search_query"))
             self.catalog.search_products_parallel(items_to_search)
 
         # 7) SAVE STATE & RETURN
@@ -183,10 +204,11 @@ class ConversationManager:
     def refine_session(self, user_feedback_text):
         """Routes the user to either 'Action' (Generate) or 'Consultation' (Chat)."""
 
-        logger.debug("Classifying intent: '%s'", user_feedback_text)
+        logger.info("─── REFINEMENT ─────────────────────────────────────")
+        logger.info("User feedback: %s", user_feedback_text)
         self._ux("🧠 Reading between the lines…", phase="intent")
         intent_action = self.interpreter.classify_intent(user_feedback_text)
-        logger.debug("Route detected: %s", intent_action)
+        logger.info("Intent route: %s", intent_action)
 
         # IMPORTANT SEPARATION:
         # - We do NOT run ContextInterpreter.interpret() here.
@@ -342,10 +364,10 @@ class ConversationManager:
         signals = dict(situational_signals)
 
         # 1) Draft
-        logger.debug("Editor pipeline start")
+        logger.info("── Stylist drafting outfit ──")
         self._ux("🎨 Balancing silhouette, color, and vibe…", phase="generation")
         draft_obj = self.stylist.recommend(
-            constraints=self.user_profile,
+            constraints=self._enriched_profile,
             situational_signals=signals,
             user_query=user_query,
             current_outfit=current_outfit_items,
@@ -353,7 +375,11 @@ class ConversationManager:
         )
         draft_obj = self._postprocess_outfit(draft_obj, current_outfit_items, signals)
 
-        logger.debug("Draft generated")
+        if draft_obj and draft_obj.outfit_options:
+            draft_items = draft_obj.outfit_options[0].items or []
+            logger.info("Stylist draft:")
+            for it in draft_items:
+                logger.info("  [%s] %s — %s", it.category, it.item_name, (it.reason or "")[:80])
         try:
             self._qa_physics(draft_obj)
         except Exception as e:
@@ -392,7 +418,7 @@ class ConversationManager:
                 self._ux("✍️ Checking if this outfit reaches editor-level quality…", phase="editor")
                 critique = self.editor.critique(
                     outfit=draft_obj,
-                    user_profile=self.user_profile,
+                    user_profile=self._enriched_profile,
                     situational_signals=signals,
                 )
             except Exception as e:
@@ -405,7 +431,9 @@ class ConversationManager:
                     plan=EditPlan(hero="N/A", actions=[]),
                 )
 
-        logger.debug("Editor critique — score=%s verdict=%s issue=%s", critique.score, critique.verdict, critique.main_issue)
+        logger.info("Editor critique — score=%s/10 verdict=%s hero=%s issue=%s",
+                    critique.score, critique.verdict,
+                    getattr(critique.plan, "hero", "N/A"), critique.main_issue)
 
         # --- Gate editor swaps in edit_mode to only allowed categories ---
         fb = signals.get("feedback") or {}
@@ -459,23 +487,28 @@ class ConversationManager:
         final_obj = draft_obj
 
         if critique.verdict == "revise" and critique.score <= revise_threshold and critique.plan.actions:
-            logger.debug("Revision triggered")
+            logger.info("── Revision triggered (score=%s) — actions: %s",
+                        critique.score, [a.action_type + ":" + a.target_category for a in critique.plan.actions])
             self._ux("✍️ Refining the outfit for stronger impact…", phase="editor")
 
             revised_signals = dict(signals)
             revised_signals["editor_plan"] = self._dump(critique.plan)
 
             final_obj = self.stylist.recommend(
-                constraints=self.user_profile,
+                constraints=self._enriched_profile,
                 situational_signals=revised_signals,
                 user_query=user_query,
                 current_outfit=current_outfit_items,
                 style_program=style_program,
             )
             final_obj = self._postprocess_outfit(final_obj, current_outfit_items, revised_signals)
-            logger.debug("Revision applied")
+            if final_obj and final_obj.outfit_options:
+                revised_items = final_obj.outfit_options[0].items or []
+                logger.info("Stylist revised:")
+                for it in revised_items:
+                    logger.info("  [%s] %s — %s", it.category, it.item_name, (it.reason or "")[:80])
         else:
-            logger.debug("No revision needed")
+            logger.info("Editor approved — no revision needed")
             self._ux("✍️ Editor approved — locking in the look.", phase="editor")
 
         # ✅ Check FINAL, not draft again
@@ -525,7 +558,7 @@ class ConversationManager:
 
     def _refine_look(self, user_text: str):
         """The 'Action' function for modification."""
-        logger.debug("Refining look: '%s'", user_text)
+        logger.info("Refining look: '%s'", user_text)
 
         current_data = self.conversation_state.get("current_recommendation", {}) or {}
         current_outfit_items = self._get_current_outfit_items() or []
@@ -539,6 +572,10 @@ class ConversationManager:
         ) or {}
 
         self.conversation_state["refinement_signals"] = feedback_analysis
+        logger.info("Refiner analysis: swap_out=%s anchors=%s corrections=%s",
+                    feedback_analysis.get("swap_out"),
+                    [a.get("item_name") for a in (feedback_analysis.get("owned_anchors") or [])],
+                    [c.get("target_category") for c in (feedback_analysis.get("attribute_corrections") or [])])
 
         # 2) Canonicalize swap_out
         swap_raw = feedback_analysis.get("swap_out") or []

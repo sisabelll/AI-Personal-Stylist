@@ -22,7 +22,6 @@ from views.onboarding import render_onboarding
 # --- COMPONENTS ---
 from components.inspiration_board import inspiration_board as inspo_board_component
 from components.chat_status import chat_status
-from components.chat_input import chat_input_custom
 import streamlit.components.v1 as st_components
 
 # --- CONFIG ---
@@ -174,12 +173,17 @@ button[aria-label*="collapse" i],
     margin-top: 0.5rem !important;
 }
 
-/* Chat input */
+/* ── CHAT INPUT (native, pinned to bottom) ────────────── */
+[data-testid="stChatInput"] {
+    background: #FAF8F4 !important;
+    padding: 0.6rem 0 0.5rem !important;
+    border-top: 1px solid #EDE8E2 !important;
+}
 [data-testid="stChatInput"] > div {
     border: 1px solid #DDD6CE !important;
-    border-radius: 12px !important;
+    border-radius: 14px !important;
     background: #FFFFFF !important;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.04) !important;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.05) !important;
 }
 [data-testid="stChatInput"] textarea {
     font-family: 'DM Sans', sans-serif !important;
@@ -189,6 +193,15 @@ button[aria-label*="collapse" i],
 [data-testid="stChatInput"] textarea::placeholder {
     color: #C2BAB3 !important;
     font-style: italic;
+}
+/* Send button inside native chat input */
+[data-testid="stChatInput"] button {
+    background: #C9A96E !important;
+    border-radius: 50% !important;
+    color: #fff !important;
+}
+[data-testid="stChatInput"] button:hover {
+    background: #B8924F !important;
 }
 
 /* ── BUTTONS ──────────────────────────────────────────── */
@@ -674,16 +687,10 @@ with tab_stylist:
                 display_outfit_recommendation(msg["content"])
             else:
                 st.markdown(msg["content"])
-    # B. CUSTOM CHAT INPUT
-    raw_input = chat_input_custom(
-        placeholder="Ex: I need a brunch outfit for Saturday…",
-        key="chat_input_field",
-    )
-    # Deduplicate: component value persists in session state until a new one is sent
-    prompt = None
-    if raw_input and raw_input != st.session_state.get("_chat_processed"):
-        st.session_state["_chat_processed"] = raw_input
-        prompt = raw_input
+
+    # B. NATIVE CHAT INPUT — pinned to bottom of viewport automatically
+    prompt = st.chat_input("Ask your stylist… e.g. I need a brunch outfit for Saturday")
+
     if prompt:
         # 1. User Message
         st.session_state.messages.append({"role": "user", "content": prompt, "type": "text"})
