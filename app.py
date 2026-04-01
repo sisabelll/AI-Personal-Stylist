@@ -22,6 +22,7 @@ from views.onboarding import render_onboarding
 # --- COMPONENTS ---
 from components.inspiration_board import inspiration_board as inspo_board_component
 from components.chat_status import chat_status
+from components.chat_input import chat_input_custom
 import streamlit.components.v1 as st_components
 
 # --- CONFIG ---
@@ -435,8 +436,6 @@ if "manager" not in st.session_state:
     
     # Send a personalized Welcome Message
     first_name = user_profile.get('full_name', 'Fashionista').split()[0]
-    welcome_msg = f"Hi {first_name}! I see you're a **{user_profile.get('color_season')}, {user_profile.get('body_style_essence')}**. How can I help you dress today?"
-    st.session_state.messages.append({"role": "assistant", "content": welcome_msg, "type": "text"})
 
 # =========================================================
 # 3. HELPER FUNCTIONS
@@ -497,7 +496,7 @@ def display_outfit_recommendation(response_data):
             # Render Image
             product = visuals_map.get(i_name)
             if product and product.get('image'):
-                st.image(product['image'], use_container_width=True)
+                st.image(product['image'], width='stretch')
                 st.caption(f"[{product.get('title', 'View Item')[:30]}...]({product.get('link', '#')})")
             else:
                 # Fallback text if no image found
@@ -688,8 +687,29 @@ with tab_stylist:
             else:
                 st.markdown(msg["content"])
 
-    # B. NATIVE CHAT INPUT — pinned to bottom of viewport automatically
-    prompt = st.chat_input("Ask your stylist… e.g. I need a brunch outfit for Saturday")
+    # B. CUSTOM CHAT INPUT
+    # Hero mode on first load (only the welcome message exists); inline once the user has typed
+    has_user_messages = any(m["role"] == "user" for m in st.session_state.messages)
+    input_mode = "inline" if has_user_messages else "hero"
+
+    raw_input = chat_input_custom(
+        placeholder="e.g. I need a brunch outfit for Saturday…",
+        mode=input_mode,
+        user_name=user_profile.get("full_name", "").split()[0],
+        color_season=user_profile.get("color_season", ""),
+        body_type=user_profile.get("body_style_essence", ""),
+        key="chat_input_field",
+    )
+
+    # Deduplicate via nonce: each submit increments the JS counter so the same
+    # text submitted twice is still treated as two distinct messages.
+    prompt = None
+    if isinstance(raw_input, dict):
+        nonce = raw_input.get("nonce")
+        text  = (raw_input.get("text") or "").strip()
+        if text and nonce != st.session_state.get("_chat_nonce"):
+            st.session_state["_chat_nonce"] = nonce
+            prompt = text
 
     if prompt:
         # 1. User Message

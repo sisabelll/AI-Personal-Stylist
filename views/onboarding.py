@@ -129,7 +129,7 @@ def render_onboarding(storage, user_id):
         )
 
         st.markdown("<br>", unsafe_allow_html=True)
-        submitted = st.form_submit_button("Start with a first look ➔", use_container_width=True)
+        submitted = st.form_submit_button("Start with a first look ➔", width='stretch')
 
         if submitted:
             if not full_name or not location_city:
