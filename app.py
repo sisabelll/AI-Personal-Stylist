@@ -290,15 +290,16 @@ inspo_store = st.session_state["inspo_store"]
 # 🛠️ DEV MODE: BYPASS LOGIN
 # ==========================================
 # Set this to True to skip login. Set to False for production.
-DEV_MODE = True 
+DEV_MODE = True
+DEV_SHOW_ONBOARDING = True  # set True to test the onboarding form
 
 if DEV_MODE and "user" not in st.session_state:
     # 1. Mock the User Object (What Supabase usually gives you)
     class MockUser:
         def __init__(self):
-            self.id = "dev-user-123"
+            self.id = "00000000-0000-0000-0000-000000000001"
             self.email = "isabel@dev.com"
-    
+
     # 2. Mock the Session Object (So code asking for tokens doesn't crash)
     class MockSession:
         def __init__(self):
@@ -307,12 +308,12 @@ if DEV_MODE and "user" not in st.session_state:
 
     # 3. Inject into Streamlit State
     st.session_state["user"] = MockUser()
-    st.session_state["user_id"] = "dev-user-123"
+    st.session_state["user_id"] = "00000000-0000-0000-0000-000000000001"
     st.session_state["session"] = MockSession()
     
     # 4. Mock the Database Profile
     st.session_state["user_profile"] = {
-        "id": "dev-user-123",
+        "id": "00000000-0000-0000-0000-000000000001",
         "full_name": "Isabel Dev",
         "location_city": "New York",
         "color_season": "Summer Cool",
@@ -327,7 +328,8 @@ if DEV_MODE and "user" not in st.session_state:
     }
     
     # 5. Mark Profile as Complete (Skips the Onboarding Form)
-    st.session_state["profile_complete"] = True
+    if not DEV_SHOW_ONBOARDING:
+        st.session_state["profile_complete"] = True
 
 # =========================================================
 # 1. AUTHENTICATION & SESSION MANAGEMENT
