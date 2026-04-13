@@ -24,11 +24,33 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Run trend watcher
+        id: run
         env:
+          PYTHONPATH: ${{ github.workspace }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           TAVILY_API_KEY: ${{ secrets.TAVILY_API_KEY }}
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
           GOOGLE_CSE_ID: ${{ secrets.GOOGLE_CSE_ID }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
-        run: python agents/trend_watcher.py
+        run: python agents/trend_watcher.py 2>&1 | tee /tmp/trend_output.txt
+
+      - name: Send run summary email
+        if: always()
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          username: ${{ secrets.EMAIL_USERNAME }}
+          password: ${{ secrets.EMAIL_PASSWORD }}
+          to: ${{ secrets.EMAIL_TO }}
+          from: Trend Watcher <${{ secrets.EMAIL_USERNAME }}>
+          subject: "Trend Watcher — ${{ job.status == 'success' && '✅ Success' || '❌ Failed' }} (${{ github.run_id }})"
+          body: |
+            Trend Watcher biweekly run completed.
+
+            Status: ${{ job.status }}
+            Run: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+            --- Output ---
+          attachments: /tmp/trend_output.txt
