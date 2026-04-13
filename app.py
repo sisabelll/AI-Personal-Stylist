@@ -174,12 +174,17 @@ button[aria-label*="collapse" i],
     margin-top: 0.5rem !important;
 }
 
-/* Chat input */
+/* ── CHAT INPUT (native, pinned to bottom) ────────────── */
+[data-testid="stChatInput"] {
+    background: #FAF8F4 !important;
+    padding: 0.6rem 0 0.5rem !important;
+    border-top: 1px solid #EDE8E2 !important;
+}
 [data-testid="stChatInput"] > div {
     border: 1px solid #DDD6CE !important;
-    border-radius: 12px !important;
+    border-radius: 14px !important;
     background: #FFFFFF !important;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.04) !important;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.05) !important;
 }
 [data-testid="stChatInput"] textarea {
     font-family: 'DM Sans', sans-serif !important;
@@ -189,6 +194,15 @@ button[aria-label*="collapse" i],
 [data-testid="stChatInput"] textarea::placeholder {
     color: #C2BAB3 !important;
     font-style: italic;
+}
+/* Send button inside native chat input */
+[data-testid="stChatInput"] button {
+    background: #C9A96E !important;
+    border-radius: 50% !important;
+    color: #fff !important;
+}
+[data-testid="stChatInput"] button:hover {
+    background: #B8924F !important;
 }
 
 /* ── BUTTONS ──────────────────────────────────────────── */
@@ -276,15 +290,16 @@ inspo_store = st.session_state["inspo_store"]
 # 🛠️ DEV MODE: BYPASS LOGIN
 # ==========================================
 # Set this to True to skip login. Set to False for production.
-DEV_MODE = True 
+DEV_MODE = True
+DEV_SHOW_ONBOARDING = True  # set True to test the onboarding form
 
 if DEV_MODE and "user" not in st.session_state:
     # 1. Mock the User Object (What Supabase usually gives you)
     class MockUser:
         def __init__(self):
-            self.id = "dev-user-123"
+            self.id = "00000000-0000-0000-0000-000000000001"
             self.email = "isabel@dev.com"
-    
+
     # 2. Mock the Session Object (So code asking for tokens doesn't crash)
     class MockSession:
         def __init__(self):
@@ -293,12 +308,12 @@ if DEV_MODE and "user" not in st.session_state:
 
     # 3. Inject into Streamlit State
     st.session_state["user"] = MockUser()
-    st.session_state["user_id"] = "dev-user-123"
+    st.session_state["user_id"] = "00000000-0000-0000-0000-000000000001"
     st.session_state["session"] = MockSession()
     
     # 4. Mock the Database Profile
     st.session_state["user_profile"] = {
-        "id": "dev-user-123",
+        "id": "00000000-0000-0000-0000-000000000001",
         "full_name": "Isabel Dev",
         "location_city": "New York",
         "color_season": "Summer Cool",
@@ -313,7 +328,8 @@ if DEV_MODE and "user" not in st.session_state:
     }
     
     # 5. Mark Profile as Complete (Skips the Onboarding Form)
-    st.session_state["profile_complete"] = True
+    if not DEV_SHOW_ONBOARDING:
+        st.session_state["profile_complete"] = True
 
 # =========================================================
 # 1. AUTHENTICATION & SESSION MANAGEMENT
@@ -422,8 +438,6 @@ if "manager" not in st.session_state:
     
     # Send a personalized Welcome Message
     first_name = user_profile.get('full_name', 'Fashionista').split()[0]
-    welcome_msg = f"Hi {first_name}! I see you're a **{user_profile.get('color_season')}, {user_profile.get('body_style_essence')}**. How can I help you dress today?"
-    st.session_state.messages.append({"role": "assistant", "content": welcome_msg, "type": "text"})
 
 # =========================================================
 # 3. HELPER FUNCTIONS
@@ -484,7 +498,7 @@ def display_outfit_recommendation(response_data):
             # Render Image
             product = visuals_map.get(i_name)
             if product and product.get('image'):
-                st.image(product['image'], use_container_width=True)
+                st.image(product['image'], width='stretch')
                 st.caption(f"[{product.get('title', 'View Item')[:30]}...]({product.get('link', '#')})")
             else:
                 # Fallback text if no image found
@@ -674,16 +688,31 @@ with tab_stylist:
                 display_outfit_recommendation(msg["content"])
             else:
                 st.markdown(msg["content"])
+
     # B. CUSTOM CHAT INPUT
+    # Hero mode on first load (only the welcome message exists); inline once the user has typed
+    has_user_messages = any(m["role"] == "user" for m in st.session_state.messages)
+    input_mode = "inline" if has_user_messages else "hero"
+
     raw_input = chat_input_custom(
-        placeholder="Ex: I need a brunch outfit for Saturday…",
+        placeholder="e.g. I need a brunch outfit for Saturday…",
+        mode=input_mode,
+        user_name=user_profile.get("full_name", "").split()[0],
+        color_season=user_profile.get("color_season", ""),
+        body_type=user_profile.get("body_style_essence", ""),
         key="chat_input_field",
     )
-    # Deduplicate: component value persists in session state until a new one is sent
+
+    # Deduplicate via nonce: each submit increments the JS counter so the same
+    # text submitted twice is still treated as two distinct messages.
     prompt = None
-    if raw_input and raw_input != st.session_state.get("_chat_processed"):
-        st.session_state["_chat_processed"] = raw_input
-        prompt = raw_input
+    if isinstance(raw_input, dict):
+        nonce = raw_input.get("nonce")
+        text  = (raw_input.get("text") or "").strip()
+        if text and nonce != st.session_state.get("_chat_nonce"):
+            st.session_state["_chat_nonce"] = nonce
+            prompt = text
+
     if prompt:
         # 1. User Message
         st.session_state.messages.append({"role": "user", "content": prompt, "type": "text"})

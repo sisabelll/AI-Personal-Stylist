@@ -10,48 +10,42 @@
     body {
       background: transparent;
       font-family: 'DM Sans', sans-serif;
-      padding: 8px 0 6px;
+      padding: 4px 0 4px;
     }
 
     #wrap {
       opacity: 0;
-      transition: opacity 0.25s ease;
+      transition: opacity 0.2s ease;
+      display: flex;
+      align-items: center;
+      gap: 10px;
     }
     #wrap.on { opacity: 1; }
 
-    /* ── Thin shimmer bar ──────────────────────────────────── */
-    #track {
-      height: 2px;
-      background: #EDE8E2;
-      border-radius: 99px;
-      overflow: hidden;
-      margin-bottom: 8px;
+    /* ── Typing dots ──────────────────────────────────────── */
+    #dots {
+      display: flex;
+      align-items: center;
+      gap: 5px;
     }
-
-    #fill {
-      height: 100%;
-      width: 45%;
-      border-radius: 99px;
-      background: linear-gradient(
-        90deg,
-        #EDE8E2    0%,
-        #C9A96E   35%,
-        #E2C898   50%,
-        #C9A96E   65%,
-        #EDE8E2  100%
-      );
-      background-size: 300% 100%;
-      animation: shimmer 2s ease-in-out infinite;
+    .dot {
+      width: 6px;
+      height: 6px;
+      background: #C9A96E;
+      border-radius: 50%;
+      animation: pulse 1.4s ease-in-out infinite;
     }
+    .dot:nth-child(2) { animation-delay: 0.22s; }
+    .dot:nth-child(3) { animation-delay: 0.44s; }
 
-    @keyframes shimmer {
-      0%   { background-position: 100% 0; }
-      100% { background-position: -100% 0; }
+    @keyframes pulse {
+      0%, 100% { opacity: 0.2; transform: scale(0.7); }
+      50%       { opacity: 1;   transform: scale(1);   }
     }
 
     /* ── Label ─────────────────────────────────────────────── */
     #label {
-      font-size: 0.64rem;
+      font-size: 0.65rem;
       letter-spacing: 0.13em;
       text-transform: uppercase;
       color: #B8AFA8;
@@ -60,7 +54,11 @@
 </head>
 <body>
   <div id="wrap">
-    <div id="track"><div id="fill"></div></div>
+    <div id="dots">
+      <div class="dot"></div>
+      <div class="dot"></div>
+      <div class="dot"></div>
+    </div>
     <span id="label"></span>
   </div>
 

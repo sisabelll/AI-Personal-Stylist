@@ -13,10 +13,12 @@ from services.client import OpenAIClient
 from services.tavily_client import TavilyClient
 from services.usage_guard import UsageGuard
 
+_QUALITY_ORDER = {"high": 0, "medium": 1, "low": 2}
+
 from core.config import Config
 from core.schemas import TrendCard, TrendCardListLLM, SourceTrendNotes, SourceTrendNotesLLM, WearPreference
 from core.trends import normalize_trend_name, apply_alias, compute_trend_key
-from services.trend_source_cache import TrendSourceCacheStore, canonicalize_url
+from services.trend_source_cache import TrendSourceCacheStore, canonicalize_url, hash_text
 from core.trend_limits import TrendRunLimits
 
 # =========================
@@ -423,6 +425,7 @@ def run(
     urls: List[str] | None = None,
 ) -> None:
     storage = StorageService()
+    usage = UsageGuard(storage, daily_budget_usd=0.75)
     trends_store = TrendsStore(storage)
     cache_store = TrendSourceCacheStore(storage)
 
@@ -431,8 +434,6 @@ def run(
     llm = OpenAIClient()
 
     alias_map = trends_store.load_alias_map()
-    style_rules = storage.load_config("style_rules.json")
-    rules_pack = build_rules_pack(style_rules)
 
     # --------
     # DISCOVERY
@@ -462,11 +463,15 @@ def run(
     # --------
     # BATCH EXTRACT
     # --------
-    urls = [c["url"] for c in chosen]
-    raw_map = tavily.extract_batch(urls, extract_depth="basic", format="text")
+    chosen_urls = [c["url"] for c in chosen]
+    raw_map = tavily.extract_batch(chosen_urls, extract_depth="basic", format="text")
+
+    # Pre-load any notes already stored for these URLs so we can skip LLM
+    # recompression when the article content hasn't changed.
+    cached_notes_map = cache_store.load_cached_notes(chosen_urls)
 
     # --------
-    # STAGE 1: compress to notes
+    # STAGE 1: compress to notes (reuse cached notes when content unchanged)
     # --------
     notes_with_scope: List[tuple[SourceTrendNotes, str]] = []
 
@@ -475,10 +480,22 @@ def run(
         title = c.get("title", "") or ""
         snippet = c.get("snippet", "") or ""
         publisher = c.get("publisher", "") or domain_of(url)
-
-        scope: WearPreference = c.get("wear_scope") or "unisex"  # from search_candidate_urls()
+        scope: WearPreference = c.get("wear_scope") or "unisex"
 
         raw = (raw_map.get(url) or "").strip()
+        new_hash = hash_text(raw) if raw else None
+        cached = cached_notes_map.get(url)
+
+        # Reuse cached notes when content hash matches — skip LLM call entirely.
+        if cached and cached.get("notes_json") and cached.get("content_hash") == new_hash:
+            try:
+                n = SourceTrendNotes.model_validate(cached["notes_json"])
+                notes_with_scope.append((n, scope))
+                print(f"♻️ Reused cached notes ({scope}): {publisher} — {url}")
+                continue
+            except Exception:
+                pass  # fall through to re-compress
+
         if looks_paywalled_or_stub(raw):
             print(f"⚠️ Skip (paywall/stub): {url}")
             continue
@@ -498,7 +515,7 @@ def run(
                 continue
 
             notes_with_scope.append((n, scope))
-            cache_store.upsert_fetched(url=url, title=title, content=raw)
+            cache_store.upsert_fetched(url=url, title=title, content=raw, notes_json=n.model_dump())
             print(f"✅ Notes ({scope}): {publisher} — {url}")
 
         except Exception as e:
@@ -544,6 +561,8 @@ def run(
 
     for pref in [wear_pref]:
         scoped_notes = notes_for_pref(notes_with_scope, pref)
+        # High-quality sources first so the LLM synthesizes from the strongest signals.
+        scoped_notes.sort(key=lambda n: _QUALITY_ORDER.get(n.quality, 1))
 
         print(f"\n🧵 Stage2: wear_pref={pref} scoped_notes={len(scoped_notes)}")
         if len(scoped_notes) < 2:
@@ -554,7 +573,6 @@ def run(
             "season": season,
             "cadence": cadence,
             "wear_preference": pref,
-            "rules_pack": rules_pack,  # consider removing later to save tokens
             "source_notes": [n.model_dump() for n in scoped_notes],
             "count": counts_by_pref[pref],
             "trend_type": "micro",

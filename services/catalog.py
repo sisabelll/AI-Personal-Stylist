@@ -6,13 +6,46 @@ import streamlit as st
 from core.config import Config
 
 # Bump to invalidate Streamlit cache when query logic changes.
-CACHE_VERSION = "v3"
+CACHE_VERSION = "v5"
+
+# Curated fashion domains for restricted search.
+# Appended to the query as "OR site:X" clauses — the only multi-domain restriction
+# method supported by the Google CSE API (siteSearch only accepts a single domain).
+ALLOWED_FASHION_DOMAINS = [
+    "net-a-porter.com",
+    "ssense.com",
+    "farfetch.com",
+    "mytheresa.com",
+    "matchesfashion.com",
+    "shopbop.com",
+    "revolve.com",
+    "aritzia.com",
+    "cos.com",
+    "stories.com",
+    "zara.com",
+    "mango.com",
+    "reiss.com",
+]
+
+# Site filter string appended to restricted queries
+_SITE_FILTER = " OR ".join(f"site:{d}" for d in ALLOWED_FASHION_DOMAINS)
 
 BLOCKED_DOMAINS = {
     "wordpress.com",
     "blogspot.com",
     "pinterest.com",
     "pinimg.com",
+    "amazon.com",
+    "amazon.co.uk",
+    "etsy.com",
+    "ebay.com",
+    "snapchat.com",
+    "instagram.com",
+    "tiktok.com",
+    "nymag.com",
+    "buzzfeed.com",
+    "wikimedia.org",
+    "wikipedia.org",
 }
 
 BLOCKED_SUBSTRINGS = (
@@ -25,6 +58,20 @@ BLOCKED_SUBSTRINGS = (
 
 # TLDs that never host retail product pages
 BLOCKED_TLDS = (".edu", ".gov", ".mil")
+
+# Image CDNs for ALLOWED_FASHION_DOMAINS that block HEAD/GET probes but serve real product images.
+# Skip the live accessibility check for these — if Google indexed them, they're real.
+TRUSTED_IMAGE_CDNS = (
+    "cdn-images.farfetch-contents.com",
+    "www.mytheresa.com",
+    "media.ssense.com",
+    "images.net-a-porter.com",
+    "image.reiss.com",
+    "media.revolve.com",
+    "img.shopbop.com",
+    "www.cos.com",
+    "www.stories.com",
+)
 
 # Path/title keywords that reliably indicate a non-retail page on any domain
 BLOCKED_CONTEXT_KEYWORDS = (
@@ -78,59 +125,98 @@ def _is_blocked_source(url: Optional[str], display_link: Optional[str], context_
         lowered = context_link.lower()
         if any(kw in lowered for kw in BLOCKED_CONTEXT_KEYWORDS):
             return True
+        # Block localized/non-US retail pages — mobile sub-paths and non-USD currency params
+        if "/mobile/" in lowered:
+            return True
+        parsed_cl = urlparse(context_link)
+        qs = (parsed_cl.query or "").lower()
+        if "currency=" in qs and "currency=usd" not in qs:
+            return True
+        if "lang=" in qs and not any(x in qs for x in ("lang=en", "lang=us")):
+            return True
 
     return False
 
 # ---------------------------------------------------------
 # 1. THE CACHED IMAGE SEARCHER
 # ---------------------------------------------------------
-@st.cache_data(show_spinner=False, persist="disk")
-def cached_google_image_search(query: str, api_key: str, cse_id: str, cache_version: str = CACHE_VERSION) -> dict:
+def _run_google_image_search(query: str, api_key: str, cse_id: str, site_restrict: bool = True) -> Optional[dict]:
     """
-    Fetches the #1 most relevant VISUAL image from Google Images.
+    Single Google Custom Search call. When site_restrict=True, appends OR site: clauses
+    to the query to restrict results to ALLOWED_FASHION_DOMAINS. This is the correct
+    multi-domain restriction method — the siteSearch API param only accepts a single domain.
     """
-    if not api_key or not cse_id: return None
-
     url = "https://www.googleapis.com/customsearch/v1"
+    q = f"({query}) ({_SITE_FILTER})" if site_restrict else query
     params = {
-        "key": api_key, "cx": cse_id, "q": query,
-        "searchType": "image", 
-        "num": 3,
-        "safe": "active", "imgSize": "large", "imgType": "photo"
+        "key": api_key, "cx": cse_id, "q": q,
+        "searchType": "image",
+        "num": 5,
+        "safe": "active", "imgSize": "large", "imgType": "photo",
+        "hl": "en",   # interface language → English results
+        "gl": "us",   # geolocation → US market pricing/URLs
     }
 
     try:
         response = requests.get(url, params=params, timeout=5)
         data = response.json()
-        
+        print(f"🔍 CSE query ({'restricted' if site_restrict else 'open'}): {query[:80]}")
         if "items" in data:
-            # 🟢 LOOP THROUGH CANDIDATES
             for item in data["items"]:
                 image_url = item.get("link")
                 display_link = item.get("displayLink")
                 context_link = item.get("image", {}).get("contextLink")
 
-                # Skip low-quality or spammy sources (clipart/wordpress/etc.)
-                if _is_blocked_source(image_url, display_link, context_link):
+                if not site_restrict and _is_blocked_source(image_url, display_link, context_link):
                     continue
-                
-                # 🛡️ THE VALIDATION CHECK
+
                 if is_image_accessible(image_url):
+                    print(f"✅ Image found: {display_link}")
                     return {
                         "title": item.get("title"),
                         "image": image_url,
                         "link": context_link,
-                        "source": item.get("displayLink"),
-                        "price": None 
+                        "source": display_link,
+                        "price": None,
                     }
                 else:
                     print(f"🚫 blocked/broken image: {image_url}")
-                    continue # Try the next one
-            
+        else:
+            print(f"⚠️  No items in CSE response. Error: {data.get('error', {}).get('message', '')}")
     except Exception as e:
         print(f"❌ Search Error: {e}")
-        
+
     return None
+
+
+@st.cache_data(show_spinner=False, persist="disk")
+def cached_google_image_search(query: str, api_key: str, cse_id: str, cache_version: str = CACHE_VERSION) -> dict:
+    """
+    Fetches the best available fashion image for a query.
+    Strategy:
+      1. Restricted search across ALLOWED_FASHION_DOMAINS (guaranteed editorial quality).
+      2. If no result, retry with a simplified query (first 4 words) on restricted domains.
+      3. If still no result, fall back to open web search with block-list filtering.
+    """
+    if not api_key or not cse_id:
+        return None
+
+    # Pass 1: restricted to curated fashion domains
+    result = _run_google_image_search(query, api_key, cse_id, site_restrict=True)
+    if result:
+        return result
+
+    # Pass 2: simplified query, still restricted (long queries with negatives can return 0 results)
+    simple_query = " ".join(query.split()[:5])
+    if simple_query != query:
+        print(f"🔄 Retrying with simplified query: {simple_query}")
+        result = _run_google_image_search(simple_query, api_key, cse_id, site_restrict=True)
+        if result:
+            return result
+
+    # Pass 3: open web search with block-list as last resort
+    print(f"🌐 Falling back to open web search for: {simple_query}")
+    return _run_google_image_search(simple_query, api_key, cse_id, site_restrict=False)
 
 
 # ---------------------------------------------------------
@@ -213,8 +299,13 @@ class CatalogClient:
 def is_image_accessible(url: str) -> bool:
     """
     Checks if an image URL is alive and accessible without downloading the whole file.
+    Trusted fashion CDNs are whitelisted and bypass the live check — they block probes
+    but always serve real product images when Google has indexed them.
     """
     if not url: return False
+    host = (urlparse(url).netloc or "").lower()
+    if any(host == cdn or host.endswith(f".{cdn}") for cdn in TRUSTED_IMAGE_CDNS):
+        return True
     
     try:
         # We use stream=True and a tight timeout (1s) to be fast.

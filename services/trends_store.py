@@ -51,11 +51,11 @@ class TrendsStore:
     def merge(self, existing: TrendCard, incoming: TrendCard) -> TrendCard:
         merged = existing.model_copy(deep=True)
 
-        merged.signals = dedupe_list([*existing.signals, *incoming.signals], 10)
-        merged.keywords = dedupe_list([*existing.keywords, *incoming.keywords], 25)
-        merged.what_to_borrow = dedupe_list([*existing.what_to_borrow, *incoming.what_to_borrow], 6)
-        merged.avoid = dedupe_list([*existing.avoid, *incoming.avoid], 6)
-        merged.sources = dedupe_urls([*existing.sources, *incoming.sources], 10)
+        merged.signals = dedupe_list([*existing.signals, *incoming.signals], 7)
+        merged.keywords = dedupe_list([*existing.keywords, *incoming.keywords], 15)
+        merged.what_to_borrow = dedupe_list([*existing.what_to_borrow, *incoming.what_to_borrow], 4)
+        merged.avoid = dedupe_list([*existing.avoid, *incoming.avoid], 3)
+        merged.sources = dedupe_urls([*existing.sources, *incoming.sources], 5)
 
         merged.confidence = max(existing.confidence, incoming.confidence)
         if incoming.shelf_life_weeks and 1 <= incoming.shelf_life_weeks <= 52:
@@ -67,9 +67,9 @@ class TrendsStore:
             newv = getattr(incoming.essence_overrides, k)
 
             setattr(eo, k, prev.model_copy(update={
-                "best_versions": dedupe_list([*prev.best_versions, *newv.best_versions], 8),
-                "avoid_versions": dedupe_list([*prev.avoid_versions, *newv.avoid_versions], 8),
-                "styling_notes": dedupe_list([*prev.styling_notes, *newv.styling_notes], 8),
+                "best_versions": dedupe_list([*prev.best_versions, *newv.best_versions], 4),
+                "avoid_versions": dedupe_list([*prev.avoid_versions, *newv.avoid_versions], 4),
+                "styling_notes": dedupe_list([*prev.styling_notes, *newv.styling_notes], 4),
             }))
         merged.essence_overrides = eo
 
@@ -79,9 +79,9 @@ class TrendsStore:
             newv = getattr(incoming.color_overrides, k)
 
             setattr(co, k, prev.model_copy(update={
-                "best_colors": dedupe_list([*prev.best_colors, *newv.best_colors], 10),
-                "avoid_colors": dedupe_list([*prev.avoid_colors, *newv.avoid_colors], 10),
-                "styling_notes": dedupe_list([*prev.styling_notes, *newv.styling_notes], 8),
+                "best_colors": dedupe_list([*prev.best_colors, *newv.best_colors], 5),
+                "avoid_colors": dedupe_list([*prev.avoid_colors, *newv.avoid_colors], 5),
+                "styling_notes": dedupe_list([*prev.styling_notes, *newv.styling_notes], 4),
             }))
         merged.color_overrides = co
         return merged

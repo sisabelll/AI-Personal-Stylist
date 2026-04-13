@@ -29,11 +29,30 @@ class EditorAgent:
 
         edit_scope = "single_swap" if (edit_mode and len(swap_out) <= 1) else "normal"
 
-        # Reuse trend context already fetched and ranked by the manager — no extra DB call.
-        trend_context = situational_signals.get("trend_context") or {}
+        color_season = user_profile.get("color_season") or user_profile.get("personal_color")
+        body_essence = user_profile.get("body_style_essence")
+        color_guidelines = user_profile.get("color_guidelines") or {}
+
+        # Build color rule summary for the hard-violation check
+        color_rule_summary = ""
+        if color_guidelines:
+            sub_types = color_guidelines.get("sub_types") or {}
+            all_prefer = list(dict.fromkeys(c for st in sub_types.values() for c in (st.get("prefer") or [])))
+            all_avoid = list(dict.fromkeys(c for st in sub_types.values() for c in (st.get("avoid") or [])))
+            color_rule_summary = (
+                f"{color_season} — {color_guidelines.get('overall_type', '')}. "
+                f"Preferred: {', '.join(all_prefer[:10])}. "
+                f"Avoid: {', '.join(all_avoid[:10])}."
+            )
+
+        formality_level = (situational_signals.get("style_interpretation") or {}).get("formality_level", "medium")
+        event_type = situational_signals.get("event_type", "")
 
         system_prompt = f"""
-        You are a ruthless fashion editor.
+        You are a structural outfit checker — NOT a taste critic.
+        Your ONLY job is to catch hard violations that the stylist cannot self-correct.
+        If there are no hard violations, you MUST return verdict="accept".
+        Do NOT revise outfits because they are "safe" or "forgettable" — that is the stylist's job.
 
         Return STRICT JSON matching OutfitCritique. No extra keys.
 
@@ -41,36 +60,43 @@ class EditorAgent:
         - edit_mode: {edit_mode}
         - edit_scope: {edit_scope}
         - allowed_swap_categories: {json.dumps(swap_out, ensure_ascii=False)}
+        - formality_level: {formality_level}
+        - event_type: {event_type}
 
-        TASTE BENCHMARKS:
-        - 7/10: coherent but forgettable.
-        - 9/10: one clear hero decision + restraint + finishing.
+        HARD VIOLATION CHECKLIST (the ONLY reasons to return verdict="revise"):
 
-        CRITICAL RULES ABOUT HERO:
-        - If edit_scope == "normal": If you cannot name a hero, verdict MUST be "revise" and score <= 7.
-        - If edit_scope == "single_swap": Do NOT force a new hero. You may name the EXISTING hero (even if locked),
-        OR say "hero unchanged" and focus critique on whether the swapped category improved taste.
+        1. PHYSICS — OnePiece coexists with Top or Bottom.
+           Fix: remove the conflicting separates.
 
-        EDIT-MODE CONSTRAINTS (NON-NEGOTIABLE):
-        - If edit_mode is true, your edit plan MUST ONLY include target_category values inside allowed_swap_categories.
-        - Propose MAX 2 actions (but for single_swap prefer MAX 1).
-        - Prefer the smallest possible changes.
-        - Respect the user's color season and body essence.
+        2. FORMALITY MISMATCH — A clearly wrong item for the event.
+           Examples of actual violations: athletic sneakers at a wedding, a mini skirt at a formal interview.
+           NOT a violation: dark jeans at a casual dinner, a blazer at brunch.
+           Only flag this if the mismatch is stark and would embarrass a real person.
 
-        TREND CARDS (OPTIONAL GUIDANCE):
-        Use at most 1-2 subtle trend touches to improve modernity and finish.
-        Do NOT turn the outfit into a trend costume.
-        {json.dumps(trend_context, ensure_ascii=False)}
+        3. EGREGIOUS COLOR SEASON BREAK — A single item that is the direct opposite of the user's season.
+           {color_rule_summary or f"Season: {color_season}"}
+           Examples of actual violations: neon orange on Summer Cool, icy pastels as main color on Deep Winter.
+           NOT a violation: a borderline warm neutral, a subtle pattern, an item in the right value range.
+           Only flag items that are clearly and obviously wrong — when in doubt, accept.
+
+        4. EXPLICIT USER CONSTRAINT VIOLATED — User said to remove or avoid a specific item/category and it still appears.
+
+        5. EDIT MODE ONLY — A locked category changed when it should not have.
+           Only applies when edit_mode=true. Check: allowed_swap_categories list.
+
+        SCORING:
+        - If no hard violation: score=9, verdict="accept", main_issue="none", plan with no actions.
+        - If 1 hard violation: score=5, verdict="revise", name the violation in main_issue, 1 targeted action.
+        - If 2+ hard violations: score=4, verdict="revise", fix the most critical one only (max 1 action).
+
+        HERO: Identify the most interesting or dominant piece and name it. This is informational only —
+        do NOT trigger a revision just because you cannot find a hero.
 
         USER PROFILE:
         {json.dumps({
-        "color_season": user_profile.get("color_season") or user_profile.get("personal_color"),
-        "body_essence": user_profile.get("body_style_essence"),
-        "preferences": (user_profile.get("preferences") or {}),
+        "color_season": color_season,
+        "body_essence": body_essence,
         }, ensure_ascii=False)}
-
-        SITUATIONAL SIGNALS:
-        {json.dumps(situational_signals, ensure_ascii=False)}
         """.strip()
 
         return self.client.call_api(
