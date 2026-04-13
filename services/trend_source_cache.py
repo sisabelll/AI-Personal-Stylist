@@ -158,16 +158,46 @@ class TrendSourceCacheStore:
 
         return decisions
 
+    def load_cached_notes(self, urls: List[str]) -> dict:
+        """
+        Returns {canonical_url: {"notes_json": dict, "content_hash": str}} for URLs
+        that have notes_json stored. Used to skip LLM re-compression when content
+        hasn't changed.
+        """
+        canon = [canonicalize_url(u) for u in urls if u]
+        canon = list(dict.fromkeys(canon))
+        if not canon:
+            return {}
+
+        resp = (
+            self.supabase
+            .table("trend_source_cache")
+            .select("url,notes_json,content_hash")
+            .in_("url", canon)
+            .execute()
+        )
+        out = {}
+        for r in (resp.data or []):
+            if r.get("url") and r.get("notes_json"):
+                out[r["url"]] = {
+                    "notes_json": r["notes_json"],
+                    "content_hash": r.get("content_hash"),
+                }
+        return out
+
     def upsert_fetched(
         self,
         *,
         url: str,
         title: Optional[str] = None,
         content: Optional[str] = None,
+        notes_json: Optional[dict] = None,
     ) -> None:
         now_iso = datetime.now(timezone.utc).isoformat()
         canon = canonicalize_url(url)
         dom = get_domain(canon)
+
+        content_hash = hash_text(content) if content else None
 
         # What we want on first insert only (includes first_seen_at)
         insert_row = {
@@ -178,8 +208,10 @@ class TrendSourceCacheStore:
         }
         if title:
             insert_row["title"] = title
-        if content:
-            insert_row["content_hash"] = hash_text(content)
+        if content_hash:
+            insert_row["content_hash"] = content_hash
+        if notes_json:
+            insert_row["notes_json"] = notes_json
 
         # What we want on subsequent updates (DO NOT include first_seen_at)
         update_row = {
@@ -188,8 +220,10 @@ class TrendSourceCacheStore:
         }
         if title:
             update_row["title"] = title
-        if content:
-            update_row["content_hash"] = hash_text(content)
+        if content_hash:
+            update_row["content_hash"] = content_hash
+        if notes_json:
+            update_row["notes_json"] = notes_json
 
         try:
             # Attempt INSERT first. Requires a UNIQUE constraint on "url".

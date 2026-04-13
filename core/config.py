@@ -9,9 +9,9 @@ load_dotenv(BASE_DIR / ".env")
 
 # Configure logging once at import time.
 # Set LOG_LEVEL=DEBUG in .env to see detailed debug output.
-_level = os.getenv("LOG_LEVEL", "WARNING").upper()
+_level = os.getenv("LOG_LEVEL", "INFO").upper()
 logging.basicConfig(
-    level=getattr(logging, _level, logging.WARNING),
+    level=getattr(logging, _level, logging.INFO),
     format="%(levelname)s [%(name)s] %(message)s",
 )
 

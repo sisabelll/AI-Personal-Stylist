@@ -3,7 +3,17 @@
 > A multi-agent AI system that helps you discover and develop your personal style — not just what to wear today, but who you want to become.
 
 ---
+*The Stylist tab — context-aware outfit recommendations with an Editor's note explaining the strategy behind the look*
 
+<img width="1661" height="674" alt="Stylist 1" src="https://github.com/user-attachments/assets/bb58f665-de5b-4c6e-b51b-7bfec0c2c146" />
+<img width="1651" height="724" alt="Stylist 2" src="https://github.com/user-attachments/assets/22c94c76-363e-4e43-ab21-ae707cdf8e56" />
+
+
+*The Inspiration Board — a curated visual feed from style icons, updated automatically by the Inspiration Agent*
+
+<img width="1660" height="918" alt="inspiration_board" src="https://github.com/user-attachments/assets/d941dfae-bae0-40a7-b73c-7ebc405cf068" />
+
+---
 ## Why This Exists
 
 Personal stylists are one of the most impactful yet inaccessible services in the world. They shape how people show up, how they're perceived, and how they feel about themselves — but they're almost exclusively available to celebrities and the wealthy.
@@ -18,33 +28,36 @@ The goal: a stylist in your pocket, for everyone.
 
 ## Architecture
 
-This is not a chatbot wrapper. It's a multi-agent reasoning pipeline where each agent has a distinct role in the styling process.
+This is a multi-agent reasoning pipeline where each agent has a distinct role in the styling process.
 
 ### Request Pipeline
 
-```
-User input → Interpreter → Stylist → Editor Loop → Refiner → Response
-```
+**New request:** `User input → Interpreter → Stylist → Editor Loop → Response`
+
+**Refinement turn:** `User feedback → Interpreter → Refiner → Stylist → Editor Loop → Response`
 
 | Agent | Role |
 |---|---|
-| **Interpreter** | Parses user input into a clean `StyleState` object. Resolves contradictions (e.g. "actually a romper" replaces "dress", not appends to it). Extracts occasion, constraints, and intent. |
-| **Stylist** | Core reasoning agent. Generates outfit recommendations using fashion knowledge, user context, and signals from the knowledge base. |
-| **Editor Loop** | Self-critique layer. Evaluates Stylist output against styling principles and iterates up to N times before passing output downstream. |
-| **Refiner** | Final polish. Adjusts tone, clarity, and voice so recommendations feel like advice from a human stylist, not a language model. |
+| **Interpreter** | Parses user input into a clean `StyleState` object. Resolves contradictions, extracts occasion, constraints, and intent. |
+| **Stylist** | Core reasoning agent. Generates outfit recommendations using fashion knowledge, user profile constraints, trend context, and style icon research. |
+| **Editor Loop** | Self-critique layer. Evaluates Stylist output against styling principles and iterates up to N times before returning a response. |
+| **Refiner** | Feedback interpreter. On refinement turns, parses what the user wants changed (swap a category, anchor an owned item, adjust an attribute) and translates that into structured directives for the next Stylist pass. |
 
-### Autonomous Background Agents
+### Background Agents
 
-These run on a schedule and continuously build the system's knowledge base — independent of user requests.
+Soon to be run on a schedule and continuously build the system's knowledge base — independent of user requests.
 
 | Agent | Role |
 |---|---|
-| **Trend Agent** | Researches current fashion trends. Injects live style signals into the Stylist's context so recommendations stay culturally current. |
-| **Inspiration Agent** | Collects imagery from style icons and brands. Builds a visual inspiration corpus that powers the inspiration board and grounds recommendations in real fashion references. |
+| **Trend Agent** | Researches current fashion trends via web search. Injects live style signals into the Stylist's context so recommendations stay culturally current. |
+| **Inspiration Agent** | Collects imagery from style icons and brands via image search. Builds the visual corpus that powers the inspiration board. |
 
-### Knowledge Base
+### Knowledge Stores
 
-A vector store (trends · inspiration · style signals) that the Stylist queries at inference time. Background agents write to it continuously; the request pipeline reads from it. This is the RAG layer that makes the system's knowledge live rather than static.
+The system currently uses two knowledge stores that the Stylist reads at inference time:
+
+- **Style entity profiles** — a JSON knowledge base of researched style icons and brands (key silhouettes, wardrobe staples, statement pieces), built on demand by the Style Researcher.
+- **Trend store** — a Supabase table of structured trend cards written by the Trend Agent, retrieved by recency and wear preference.
 
 ---
 
@@ -79,7 +92,7 @@ The goal isn't a single outfit. It's helping users build a coherent aesthetic id
 | Agent orchestration | Python |
 | LLM backbone | GPT-4o, GPT-4o-mini (OpenAI) |
 | Inspiration board | Custom UI with image curation pipeline |
-| Knowledge base | Vector store (in progress) |
+| Knowledge stores | JSON entity profiles + Supabase (trends, inspiration) |
 
 ---
 
@@ -95,11 +108,10 @@ The goal isn't a single outfit. It's helping users build a coherent aesthetic id
 ## Roadmap
 
 ### Near-term
-- [ ] Trend Agent — live fashion trend ingestion
-- [ ] Knowledge base — vector store with RAG retrieval for Stylist
-- [ ] Editor Loop — iterative self-critique before final output
-- [ ] Rule Engine — enforce color harmony, silhouette balance, layering logic
-- [ ] Improved inspiration board — deduplication, broken URL filtering, cleaner card layout
+- [ ] Inspiration board component — card grid UI, save/hide feedback
+- [ ] Style Researcher — deeper entity profiling for style icons and brands
+- [ ] Vector knowledge base — semantic retrieval for trend and inspiration data
+- [ ] Rule Engine refinements — stricter color harmony and silhouette enforcement
 
 ### Longer-term
 - [ ] Digital wardrobe — upload and organize your closet
@@ -111,7 +123,7 @@ The goal isn't a single outfit. It's helping users build a coherent aesthetic id
 
 ## Project Status
 
-Active development. Core agent pipeline (Interpreter → Stylist → Refiner) is running. Inspiration board prototype is live. Background agents and knowledge base are in progress.
+Active development. Full request pipeline (Interpreter → Stylist → Editor Loop) is running. Trend Agent and Style Researcher are live. Inspiration board pipeline is built; board UI is in progress.
 
 ---
 

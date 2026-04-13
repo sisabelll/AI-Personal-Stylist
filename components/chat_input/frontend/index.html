@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;1,300&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;1,300&family=Playfair+Display:ital,wght@0,400;1,400&display=swap');
 
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -13,13 +13,60 @@
       padding: 4px 0 2px;
     }
 
-    #wrap {
+    /* ── INLINE MODE ──────────────────────────────────────── */
+    #wrap-inline {
       display: flex;
       align-items: flex-end;
       gap: 10px;
     }
 
-    /* ── Textarea ──────────────────────────────────────────── */
+    /* ── HERO MODE ────────────────────────────────────────── */
+    #wrap-hero {
+      display: none;
+      flex-direction: column;
+      align-items: stretch;
+      padding: 12px 0 8px;
+      gap: 14px;
+    }
+    #hero-label {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.05rem;
+      font-style: italic;
+      color: #9C9590;
+      text-align: center;
+      letter-spacing: 0.01em;
+    }
+    #hero-input-row {
+      display: flex;
+      align-items: flex-end;
+      gap: 10px;
+    }
+    #chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+      justify-content: center;
+      padding-bottom: 4px;
+    }
+    .chip {
+      padding: 5px 13px;
+      border: 1px solid #DDD6CE;
+      border-radius: 99px;
+      font-size: 0.7rem;
+      letter-spacing: 0.05em;
+      color: #9C9590;
+      background: transparent;
+      cursor: pointer;
+      font-family: 'DM Sans', sans-serif;
+      transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+    }
+    .chip:hover {
+      border-color: #C9A96E;
+      color: #C9A96E;
+      background: #FDF8F1;
+    }
+
+    /* ── SHARED TEXTAREA ──────────────────────────────────── */
     textarea {
       flex: 1;
       min-height: 46px;
@@ -35,7 +82,7 @@
       background: #FDFAF7;
       outline: none;
       line-height: 1.5;
-      transition: border-color 0.15s ease;
+      transition: border-color 0.15s ease, background 0.15s ease;
     }
     textarea::placeholder {
       color: #C2BAB3;
@@ -45,8 +92,8 @@
     textarea:focus { border-color: #C9A96E; background: #FFFFFF; }
     textarea:disabled { opacity: 0.5; cursor: not-allowed; }
 
-    /* ── Send button ──────────────────────────────────────── */
-    #send {
+    /* ── SEND BUTTON ──────────────────────────────────────── */
+    .send-btn {
       width: 46px;
       height: 46px;
       border-radius: 50%;
@@ -62,9 +109,9 @@
       justify-content: center;
       transition: background 0.15s ease, transform 0.1s ease;
     }
-    #send:hover:not(:disabled)  { background: #B8924F; transform: scale(1.06); }
-    #send:active:not(:disabled) { transform: scale(0.96); }
-    #send:disabled {
+    .send-btn:hover:not(:disabled) { background: #B8924F; transform: scale(1.06); }
+    .send-btn:active:not(:disabled) { transform: scale(0.96); }
+    .send-btn:disabled {
       background: #EDE8E2;
       color: #C2BAB3;
       cursor: default;
@@ -73,9 +120,25 @@
   </style>
 </head>
 <body>
-  <div id="wrap">
-    <textarea id="input" rows="1"></textarea>
-    <button id="send" type="button" disabled aria-label="Send">↑</button>
+  <!-- INLINE MODE -->
+  <div id="wrap-inline">
+    <textarea id="input-inline" rows="1"></textarea>
+    <button class="send-btn" id="send-inline" type="button" disabled aria-label="Send">↑</button>
+  </div>
+
+  <!-- HERO MODE -->
+  <div id="wrap-hero">
+    <div id="hero-label"></div>
+    <div id="hero-input-row">
+      <textarea id="input-hero" rows="1" placeholder="e.g. dinner with partner's friends, weekend errands, a job interview…"></textarea>
+      <button class="send-btn" id="send-hero" type="button" disabled aria-label="Send">↑</button>
+    </div>
+    <div id="chips">
+      <button class="chip" data-text="Build me a full outfit for ">Build an outfit</button>
+      <button class="chip" data-text="What goes with my ">What goes with…</button>
+      <button class="chip" data-text="I have an event — ">Event dressing</button>
+      <button class="chip" data-text="Give me a trendy, stylish outfit">Surprise me!</button>
+    </div>
   </div>
 
   <script>
@@ -91,43 +154,108 @@
 
     toSL('streamlit:componentReady', { apiVersion: 1 });
 
-    // ── Elements ────────────────────────────────────────────
-    const input = document.getElementById('input');
-    const btn   = document.getElementById('send');
-
-    // ── Auto-resize textarea ────────────────────────────────
-    function resize() {
-      input.style.height = 'auto';
-      input.style.height = Math.min(input.scrollHeight, 128) + 'px';
-      // overflow-y: auto when content exceeds max
-      input.style.overflowY = input.scrollHeight > 128 ? 'auto' : 'hidden';
+    // ── Resize helper ────────────────────────────────────────
+    function resize(el) {
+      el.style.height = 'auto';
+      el.style.height = Math.min(el.scrollHeight, 128) + 'px';
+      el.style.overflowY = el.scrollHeight > 128 ? 'auto' : 'hidden';
+      toSL('streamlit:setFrameHeight', { height: document.body.scrollHeight + 4 });
     }
 
-    input.addEventListener('input', () => {
-      btn.disabled = !input.value.trim();
-      resize();
-    });
+    // ── Wire up both inputs ──────────────────────────────────
+    function wireInput(inputId, btnId) {
+      const input = document.getElementById(inputId);
+      const btn   = document.getElementById(btnId);
+      input.addEventListener('input', () => {
+        btn.disabled = !input.value.trim();
+        resize(input);
+      });
+      input.addEventListener('keydown', e => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+          e.preventDefault();
+          doSubmit(inputId, btnId);
+        }
+      });
+      btn.addEventListener('click', () => doSubmit(inputId, btnId));
+    }
 
-    // ── Submit ──────────────────────────────────────────────
-    function submit() {
-      const val = input.value.trim();
+    wireInput('input-inline', 'send-inline');
+    wireInput('input-hero',   'send-hero');
+
+    // ── Submit ───────────────────────────────────────────────
+    // Nonce increments on every submit so Python can distinguish two identical messages.
+    let _nonce = 0;
+
+    function doSubmit(inputId, btnId) {
+      const input = document.getElementById(inputId);
+      const btn   = document.getElementById(btnId);
+      const val   = input.value.trim();
       if (!val || btn.disabled) return;
-      toSL('streamlit:setComponentValue', { value: val, dataType: 'json' });
+      _nonce++;
+      toSL('streamlit:setComponentValue', { value: { text: val, nonce: _nonce }, dataType: 'json' });
       input.value = '';
       input.style.height = 'auto';
       btn.disabled = true;
     }
 
-    btn.addEventListener('click', submit);
-    input.addEventListener('keydown', e => {
-      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit(); }
+    // ── Quick-start chips (hero mode only) ───────────────────
+    document.querySelectorAll('.chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        const heroInput = document.getElementById('input-hero');
+        heroInput.value = chip.dataset.text;
+        heroInput.focus();
+        heroInput.setSelectionRange(heroInput.value.length, heroInput.value.length);
+        document.getElementById('send-hero').disabled = false;
+        resize(heroInput);
+      });
     });
 
-    // ── Receive props ───────────────────────────────────────
+    // ── Mode switching ───────────────────────────────────────
+    function applyMode(mode) {
+      const inlineWrap = document.getElementById('wrap-inline');
+      const heroWrap   = document.getElementById('wrap-hero');
+      if (mode === 'hero') {
+        inlineWrap.style.display = 'none';
+        heroWrap.style.display   = 'flex';
+        setTimeout(() => {
+          document.getElementById('input-hero').focus();
+          toSL('streamlit:setFrameHeight', { height: document.body.scrollHeight + 4 });
+        }, 80);
+      } else {
+        heroWrap.style.display   = 'none';
+        inlineWrap.style.display = 'flex';
+        setTimeout(() => {
+          toSL('streamlit:setFrameHeight', { height: document.body.scrollHeight + 4 });
+        }, 50);
+      }
+    }
+
+    // ── Receive props ────────────────────────────────────────
     window.addEventListener('message', event => {
       if (!event.data || event.data.type !== 'streamlit:render') return;
-      const { placeholder = 'Ask your stylist…' } = event.data.args || {};
-      input.placeholder = placeholder;
+      const {
+        placeholder  = 'Ask your stylist…',
+        mode         = 'inline',
+        user_name    = '',
+        color_season = '',
+        body_type    = '',
+      } = event.data.args || {};
+
+      document.getElementById('input-inline').placeholder = placeholder;
+
+      // Build hero greeting with bolded profile terms
+      const label = document.getElementById('hero-label');
+      if (user_name || color_season || body_type) {
+        const name    = user_name    ? `Hi <strong>${user_name}</strong>!` : 'Hi there!';
+        const profile = (color_season || body_type)
+          ? ` I see you're a <strong>${[color_season, body_type].filter(Boolean).join(', ')}</strong>.`
+          : '';
+        label.innerHTML = `${name}${profile} How can I help you dress today?`;
+      } else {
+        label.innerHTML = 'What are you dressing for today?';
+      }
+
+      applyMode(mode);
     });
   </script>
 </body>

@@ -82,6 +82,6 @@ class InspirationStore:
             self.supabase.table("inspiration_items").update(
                 {"feedback": action}
             ).eq("id", item_id).eq("user_id", user_id).execute()
-        except Exception:
+        except Exception as e:
             logger.warning(f"[InspirationStore] log_feedback failed: {e}")
             pass  # column not yet added — hide/save still work client-side

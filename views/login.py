@@ -26,7 +26,7 @@ def render_login(supabase):
             email = st.text_input("Email", placeholder="you@example.com")
             password = st.text_input("Password", type="password")
             
-            submit_login = st.form_submit_button("Log In", use_container_width=True)
+            submit_login = st.form_submit_button("Log In", width='stretch')
             
             if submit_login:
                 if not email or not password:
@@ -60,7 +60,7 @@ def render_login(supabase):
             new_password = st.text_input("Password", type="password", help="Must be at least 6 characters")
             confirm_password = st.text_input("Confirm Password", type="password")
             
-            submit_signup = st.form_submit_button("Create Account", use_container_width=True)
+            submit_signup = st.form_submit_button("Create Account", width='stretch')
             
             if submit_signup:
                 if new_password != confirm_password:
@@ -94,7 +94,7 @@ def render_login(supabase):
     # st.markdown("---")
     # st.markdown("### Or continue with")
     
-    # if st.button("Google", use_container_width=True):
+    # if st.button("Google", width='stretch'):
     #     try:
     #         # Detect where the app is running (Localhost vs. Cloud)
     #         # You must set APP_URL in .streamlit/secrets.toml for cloud deployment

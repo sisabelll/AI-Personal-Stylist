@@ -73,6 +73,9 @@ class StyleStylist:
         color_season = constraints.get("color_season") or constraints.get("personal_color") or "General"
         season = constraints.get("season", "General")
 
+        color_guidelines = constraints.get("color_guidelines") or {}
+        body_guidelines = constraints.get("body_guidelines") or {}
+
         hard_constraints = situational_signals.get("hard_constraints") or {}
         event_raw = str(
             situational_signals.get("event_type")
@@ -91,10 +94,22 @@ class StyleStylist:
         inspo = situational_signals.get("external_inspiration") or {}
         inspo_name = inspo.get("name") or ""
         inspo_vibe = inspo.get("vibe") or ""
-        inspo_staples = inspo.get("wardrobe_staples") or []
-        inspo_statements = inspo.get("statement_pieces") or []
         inspo_fabrics = inspo.get("fabric_preferences") or []
         inspo_palette = inspo.get("color_palette") or []
+
+        # Filter staples to wearable everyday items — exclude anything clearly formal/costume/statement
+        # (e.g. couture gowns, fur coats, see-through tops for a casual dinner).
+        # For high formality events, allow the full list; for casual/medium, keep only grounded items.
+        _FORMAL_NOISE = {"gown", "couture", "fur", "see-through", "sheer", "vintage t-shirt", "album cover", "parachute"}
+        raw_staples = inspo.get("wardrobe_staples") or []
+        raw_statements = inspo.get("statement_pieces") or []
+        if formality_level == "high":
+            inspo_staples = raw_staples[:5]
+            inspo_statements = raw_statements[:2]
+        else:
+            inspo_staples = [s for s in raw_staples if not any(noise in s.lower() for noise in _FORMAL_NOISE)][:4]
+            # For casual/medium events, statements are too loud — pass none to avoid noise
+            inspo_statements = []
 
         # feedback/edit signals
         feedback = situational_signals.get("feedback") or {}
@@ -128,6 +143,12 @@ class StyleStylist:
         You are an expert personal fashion stylist with strong editorial judgment.
         You think like a real stylist: intentional, selective, and aware of tradeoffs.
         You do NOT generate generic outfits or replace items unless explicitly asked.
+
+        EDITORIAL STANDARD (NON-NEGOTIABLE):
+        Every outfit must have one clear HERO piece — the single item that makes the look memorable and intentional.
+        A flat, forgettable outfit (e.g. plain jeans + plain tee + plain sneakers with no point of view) is ALWAYS wrong.
+        Reject safe and predictable. Every recommendation must feel deliberate, stylish, and screenshot-worthy.
+        If you cannot identify a hero, the outfit is not good enough — revise your choices before outputting.
 
         You must return STRICT JSON that matches the OutfitRecommendation schema.
         For each item:
@@ -184,10 +205,57 @@ class StyleStylist:
         - Social tone: {social_tone or "N/A"}
         - Aesthetic bias: {aesthetic_bias or "N/A"}
         - Vibe modifiers: {", ".join(vibe_modifiers) if vibe_modifiers else "N/A"}
-        - Body lines: honor {body_type} with silhouette/proportions/structure
-        - Color: prioritize {color_season}; if deviating, acknowledge and justify
+        - Body lines: see BODY ESSENCE RULES below — apply to every silhouette and fabric choice
+        - Color: see COLOR SEASON RULES below — apply to every item
         - Items to avoid/remove: {", ".join(items_to_remove) if items_to_remove else "N/A"}
         """.strip()
+
+        # Build color season rules block from full guidelines
+        color_rules_block = ""
+        if color_guidelines:
+            sub_types = color_guidelines.get("sub_types") or {}
+            all_prefer, all_avoid, all_strategies, all_fabric_tips = [], [], [], []
+            for st in sub_types.values():
+                all_prefer.extend(st.get("prefer") or [])
+                all_avoid.extend(st.get("avoid") or [])
+                if st.get("styling_strategy"):
+                    all_strategies.append(st["styling_strategy"])
+                if st.get("fabric_pattern_tips"):
+                    all_fabric_tips.append(st["fabric_pattern_tips"])
+            # Deduplicate while preserving order
+            all_prefer = list(dict.fromkeys(all_prefer))
+            all_avoid = list(dict.fromkeys(all_avoid))
+            color_rules_block = f"""
+COLOR SEASON RULES — {color_season} ({color_guidelines.get("overall_type", "")}) — MANDATORY
+Characteristic: {color_guidelines.get("main_characteristic", "")}
+PREFERRED COLORS: {", ".join(all_prefer) if all_prefer else "N/A"}
+COLORS TO AVOID: {", ".join(all_avoid) if all_avoid else "N/A"}
+STYLING STRATEGIES:
+{chr(10).join(f"  - {s}" for s in all_strategies if s)}
+FABRIC & HARDWARE TIPS:
+{chr(10).join(f"  - {f}" for f in all_fabric_tips if f)}
+RULE: Every item's color must align with {color_season}. Any deviation requires explicit justification in the item's reason field.
+            """.strip()
+
+        # Build body essence rules block from full guidelines
+        body_rules_block = ""
+        if body_guidelines:
+            pref = body_guidelines.get("preferred_elements") or {}
+            avoid_el = body_guidelines.get("avoid_elements") or {}
+            body_rules_block = f"""
+BODY ESSENCE RULES — {body_type} ({body_guidelines.get("type_name", "")}) — MANDATORY
+Styling Principle: {body_guidelines.get("styling_principle", "")}
+Silhouette Intent: {body_guidelines.get("silhouette_intent", "")}
+PREFERRED:
+  - Fabrics: {pref.get("fabric_and_texture", "N/A")}
+  - Silhouette/Fit: {pref.get("fit_and_silhouette", "N/A")}
+  - Details: {pref.get("details_and_accessories", "N/A")}
+AVOID:
+  - Fabrics: {avoid_el.get("fabric_and_texture", "N/A")}
+  - Silhouette/Fit: {avoid_el.get("fit_and_silhouette", "N/A")}
+  - Details: {avoid_el.get("details_and_accessories", "N/A")}
+RULE: Every silhouette and fabric choice must reflect {body_type} principles. Items that violate these rules must be replaced.
+            """.strip()
 
         # Canonical swap_out for prompt (TitleCase)
         swap_requests = sorted({canon_category(x) for x in swap_requests_raw if canon_category(x) != "Unknown"})
@@ -262,7 +330,7 @@ class StyleStylist:
         """.strip()
 
         system_prompt = "\n\n".join(
-            [base_block, program_block, inspiration_block, trend_block, context_block, edit_block, physics_block]
+            filter(bool, [base_block, program_block, inspiration_block, trend_block, context_block, color_rules_block, body_rules_block, edit_block, physics_block])
         ).strip()
 
         editor_plan = situational_signals.get("editor_plan")
@@ -278,7 +346,7 @@ class StyleStylist:
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": f"User Query: {user_query}\nSignals: {json.dumps(situational_signals, ensure_ascii=False)}"},
             ],
-            temperature=0.7,
+            temperature=0.45,
             response_model=OutfitRecommendation,
         )
 
@@ -528,6 +596,9 @@ class StyleStylist:
         return outfit_items
 
     def _apply_gender_query_postprocess(self, rec: OutfitRecommendation, wear_category: str) -> None:
+        # Keep negatives tight — domain restriction handles quality, not keyword stuffing.
+        # Do NOT add editorial/lookbook terms: they attract blog listicles and roundup articles
+        # instead of actual product images on restricted fashion retailer domains.
         negatives = "-clipart -vector -aliexpress -ebay -amazon -walmart -costume -drawing -lowres -canvas"
         target_gender = (wear_category or "unisex").lower()
 
