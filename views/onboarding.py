@@ -285,7 +285,7 @@ def _step_about():
         else:
             with st.spinner("Checking city…"):
                 if not _validate_city(city):
-                    error_slot.error(f"We couldn't find "{city}" — please check the spelling or try a nearby city.")
+                    error_slot.error(f"We couldn't find '{city}' — please check the spelling or try a nearby city.")
                 else:
                     st.session_state["ob_step"] = 1
                     st.rerun()
@@ -537,6 +537,7 @@ def _step_brands_vibe(storage, user_id):
     st.markdown('<div class="ob-step-label">Step 5 of 5</div>', unsafe_allow_html=True)
     st.markdown('<div class="ob-step-title">Brands & Vibe</div>', unsafe_allow_html=True)
     st.caption("Even aspirationally — which of these feel like *you*?")
+    error_slot = st.empty()
 
     with st.spinner("Loading brand logos…"):
         logos = _fetch_all_logos()
@@ -590,7 +591,9 @@ def _step_brands_vibe(storage, user_id):
             st.rerun()
     with c_finish:
         if st.button("Finish & Style Me ✦", type="primary", key="nav_finish"):
-            _save(storage, user_id)
+            err = _save(storage, user_id)
+            if err:
+                error_slot.error(err)
 
 
 def _nav(prev_step: int, next_step: int):
@@ -680,7 +683,8 @@ def _save(storage, user_id):
             time.sleep(1.5)
             st.rerun()
         except Exception as e:
-            st.error(f"Save failed: {e}")
+            return str(e)
+    return None
 
 # ── Main entry ────────────────────────────────────────────────────────────────
 
