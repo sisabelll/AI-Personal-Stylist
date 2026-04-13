@@ -1,4 +1,3 @@
-import streamlit as st
 import json
 import os
 from supabase import create_client, Client
@@ -6,15 +5,14 @@ from supabase import create_client, Client
 class StorageService:
     def __init__(self):
         """
-        Initializes the Supabase client using credentials from Streamlit secrets.
+        Initializes the Supabase client using credentials from environment variables.
         """
         url = os.environ.get("SUPABASE_URL")
         key = os.environ.get("SUPABASE_KEY")
         service_key = os.environ.get("SUPABASE_SERVICE_KEY")
 
         if not url or not key:
-            st.error("🚨 Missing Supabase Credentials! Please add SUPABASE_URL and SUPABASE_KEY to .streamlit/secrets.toml")
-            st.stop()
+            raise EnvironmentError("Missing SUPABASE_URL or SUPABASE_KEY environment variables")
         
         self.supabase: Client = create_client(url, key)
         if service_key:
@@ -83,7 +81,7 @@ class StorageService:
                 
             return True
         except Exception as e:
-            st.error(f"Database Error: {e}")
+            print(f"Database Error: {e}")
             raise e
 
     # ==========================================
