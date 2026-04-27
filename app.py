@@ -487,6 +487,12 @@ if not st.session_state["profile_complete"]:
 # ✅ READY: Load User Profile
 user_profile = st.session_state["user_profile"]
 
+# 🎨 FIRST-TIME BOARD BUILD: trigger automatically if user has no inspiration items yet
+if not st.session_state.get("_inspo_first_run_checked"):
+    st.session_state["_inspo_first_run_checked"] = True
+    if not inspo_store.fetch_top_items(user_id=user_id, limit=1):
+        st.session_state["_inspo_building"] = True
+
 # =========================================================
 # 2. APP INITIALIZATION
 # =========================================================
