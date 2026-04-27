@@ -62,6 +62,7 @@ jobs:
           APIFY_API_KEY: ${{ secrets.APIFY_API_KEY }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          TAVILY_API_KEY: ${{ secrets.TAVILY_API_KEY }}
         run: |
           python agents/inspiration_agent.py --user-id ${{ matrix.user_id }} \
             2>&1 | tee /tmp/inspiration_${{ matrix.user_id }}.txt
