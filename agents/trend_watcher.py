@@ -228,15 +228,19 @@ def filter_by_wear_preference(
     allowed = {user_pref, "unisex"}
     return [c for c in candidates if c.get("wear_scope") in allowed]
 
+_UNEXTRACTABLE_DOMAINS = {"youtube.com", "youtu.be", "reddit.com", "tiktok.com", "instagram.com", "twitter.com", "x.com"}
+
 def choose_urls_to_extract(storage: StorageService, candidates: List[Dict[str, str]]) -> List[Dict[str, str]]:
     """
     Applies:
+    - filters domains Tavily can't extract (video/social)
     - 30 day cache TTL
     - max per domain
     - max extracts per run
     """
     cache = TrendSourceCacheStore(storage)
 
+    candidates = [c for c in candidates if domain_of(c.get("url", "")).replace("www.", "") not in _UNEXTRACTABLE_DOMAINS]
     urls = [c["url"] for c in candidates if c.get("url")]
     decisions = cache.filter_urls_to_fetch(urls, ttl_days=CACHE_TTL_DAYS)
     should_fetch = {d.url for d in decisions if d.should_fetch}
@@ -589,6 +593,10 @@ def run(
 
         prepared: List[TrendCard] = []
         for c_llm in draft.cards:
+            if not (c_llm.trend_name or "").strip():
+                print(f"⚠️ Skip (empty trend_name): {c_llm}")
+                continue
+
             c_full = TrendCard(
                 trend_key="__tmp__",
                 season=season,

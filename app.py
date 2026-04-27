@@ -1,10 +1,10 @@
 import json
+import os
 import streamlit as st
 import requests
 import traceback
-from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
-from urllib.parse import quote, urlsplit, urlunsplit
+from urllib.parse import quote, unquote, urlsplit, urlunsplit
 from urllib.request import urlopen
 from dotenv import load_dotenv
 
@@ -18,11 +18,11 @@ from workflow.manager import ConversationManager
 # --- VIEWS ---
 from views.login import render_login
 from views.onboarding import render_onboarding
+from views.settings import render_settings
 
 # --- COMPONENTS ---
 from components.inspiration_board import inspiration_board as inspo_board_component
 from components.chat_status import chat_status
-from components.chat_input import chat_input_custom
 import streamlit.components.v1 as st_components
 
 # --- CONFIG ---
@@ -290,8 +290,8 @@ inspo_store = st.session_state["inspo_store"]
 # 🛠️ DEV MODE: BYPASS LOGIN
 # ==========================================
 # Set this to True to skip login. Set to False for production.
-DEV_MODE = True
-DEV_SHOW_ONBOARDING = True  # set True to test the onboarding form
+DEV_MODE = False
+DEV_SHOW_ONBOARDING = False  # set True to test the onboarding form
 
 if DEV_MODE and "user" not in st.session_state:
     # 1. Mock the User Object (What Supabase usually gives you)
@@ -340,32 +340,108 @@ if "ux_events" not in st.session_state:
 def ux_callback(event):
     st.session_state.ux_events.append(event)
 
-query_params = st.query_params 
+# --- Cookie-based session persistence ---
+# We write cookies via JavaScript (runs in the browser, synchronous and reliable)
+# and read them via st.context.cookies (reads HTTP request headers directly,
+# always available on every render with no async round-trip).
+_COOKIE_NAME = "sb_session"
+_COOKIE_TTL_DAYS = 30
 
-if "code" in query_params:
+def _save_session_cookie(session):
+    """Queue a JS cookie write for the next render."""
     try:
-        # Now 'storage' remembers the flow!
-        session = storage.supabase.auth.exchange_code_for_session({
-            "auth_code": query_params["code"]
+        payload = json.dumps({
+            "access_token":  session.access_token,
+            "refresh_token": session.refresh_token,
         })
-        
-        # Save User
-        st.session_state["session"] = session
-        st.session_state["user"] = session.user
-        st.session_state["user_id"] = session.user.id
-        
-        # Cleanup URL and Reload
-        st.query_params.clear()
-        st.rerun()
-        
+        st.session_state["_cookie_pending"] = payload
+    except Exception:
+        pass
+
+def _clear_session_cookie():
+    st.session_state["_cookie_pending"] = "__clear__"
+
+# Flush any pending cookie writes via JavaScript before anything else runs.
+# JS writes the cookie in the browser; st.context.cookies reads it on the
+# next page load from the HTTP request headers.
+_pending = st.session_state.pop("_cookie_pending", None)
+if _pending == "__clear__":
+    st_components.html(
+        f"<script>window.parent.document.cookie='{_COOKIE_NAME}=;max-age=0;path=/';</script>",
+        height=0,
+    )
+elif _pending:
+    _encoded = quote(_pending)
+    _ttl = _COOKIE_TTL_DAYS * 86400
+    st_components.html(
+        f"<script>window.parent.document.cookie='{_COOKIE_NAME}={_encoded};max-age={_ttl};path=/;SameSite=Lax';</script>",
+        height=0,
+    )
+
+# Restore session from cookie on page refresh.
+if "user" not in st.session_state and not DEV_MODE:
+    try:
+        raw = st.context.cookies.get(_COOKIE_NAME)
+    except Exception:
+        raw = None
+
+    if raw:
+        try:
+            tokens = json.loads(unquote(raw))
+            restored = storage.supabase.auth.set_session(
+                tokens["access_token"], tokens["refresh_token"]
+            )
+            if restored and restored.user:
+                st.session_state["session"] = restored.session
+                st.session_state["user"]    = restored.user
+                st.session_state["user_id"] = restored.user.id
+        except Exception:
+            _clear_session_cookie()
+
+# If Supabase returns tokens in the URL hash (implicit flow), this JS snippet
+# reads them and re-navigates to the same URL with tokens as query params so
+# Streamlit's Python side can see them.
+st_components.html("""
+<script>
+(function() {
+    const win = window.parent || window;
+    const hash = win.location.hash.substring(1);
+    if (!hash) return;
+    const p = new URLSearchParams(hash);
+    const at = p.get('access_token');
+    const rt = p.get('refresh_token');
+    if (at && rt) {
+        const url = new URL(win.location.href);
+        url.hash = '';
+        url.searchParams.set('access_token', at);
+        url.searchParams.set('refresh_token', rt);
+        win.location.replace(url.toString());
+    }
+})();
+</script>
+""", height=0)
+
+query_params = st.query_params
+
+# Implicit-flow callback: tokens arrive as query params (set by the JS above)
+if "access_token" in query_params and "user" not in st.session_state:
+    try:
+        restored = storage.supabase.auth.set_session(
+            query_params["access_token"], query_params["refresh_token"]
+        )
+        if restored and restored.user:
+            st.session_state["session"] = restored.session
+            st.session_state["user"]    = restored.user
+            st.session_state["user_id"] = restored.user.id
+            _save_session_cookie(restored.session)
+            st.query_params.clear()
+            st.rerun()
     except Exception as e:
         st.error(f"Login failed: {e}")
-        # Optional: Print detail for debugging
-        # st.write(e)
 
 # 🛑 GATE 1: LOGIN CHECK
 if "user" not in st.session_state:
-    render_login(storage.supabase)
+    render_login(storage.supabase, on_login=_save_session_cookie)
     st.stop()
 
 # 👤 USER CONTEXT
@@ -382,10 +458,16 @@ with st.sidebar:
     </div>
     """, unsafe_allow_html=True)
     st.markdown(f"<div style='font-size:0.78rem; color:#6A6560; padding-bottom:0.5rem;'>{user.email}</div>", unsafe_allow_html=True)
-    if st.button("Log Out"):
-        storage.supabase.auth.sign_out()
-        st.session_state.clear()
-        st.rerun()
+    col_settings, col_logout = st.columns(2)
+    with col_settings:
+        if st.button("Settings", key="open_settings"):
+            render_settings(storage, user_id)
+    with col_logout:
+        if st.button("Log Out", key="sidebar_logout"):
+            storage.supabase.auth.sign_out()
+            _clear_session_cookie()
+            st.session_state.clear()
+            st.rerun()
     st.markdown("---")
 
 # 🛑 GATE 2: PROFILE CHECK
@@ -421,6 +503,9 @@ style_rules = get_style_rules()
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
+if "outfit_ratings" not in st.session_state:
+    st.session_state.outfit_ratings = {}  # outfit_id -> {"rating": int|None, "saved": bool, "db_id": str}
+
 if "catalog" not in st.session_state:
     st.session_state.catalog = CatalogClient()
 
@@ -442,6 +527,65 @@ if "manager" not in st.session_state:
 # =========================================================
 # 3. HELPER FUNCTIONS
 # =========================================================
+
+def _star_str(rating: int) -> str:
+    return "★" * rating + "☆" * (5 - rating)
+
+def _render_rating_badge(rating_data: dict):
+    """Shows a static rating line under a previously-rated outfit."""
+    parts = []
+    r = rating_data.get("rating")
+    s = rating_data.get("saved")
+    if r:
+        parts.append(f"{_star_str(r)} {r}/5")
+    if s:
+        parts.append("♡ Saved")
+    if parts:
+        st.markdown(
+            f"<div style='margin-top:6px; font-size:0.8rem; color:#C9A96E; letter-spacing:0.04em;'>"
+            f"{'  ·  '.join(parts)}</div>",
+            unsafe_allow_html=True,
+        )
+
+def _render_rating_widget(outfit_id: str, db_id: str):
+    """Shows the star-rating + save widget for an unrated outfit."""
+    st.markdown(
+        "<div style='margin:1rem 0 0.4rem; font-size:0.7rem; letter-spacing:0.14em; "
+        "text-transform:uppercase; color:#9C9590;'>Rate this look</div>",
+        unsafe_allow_html=True,
+    )
+    col_stars, col_save = st.columns([4, 1])
+    with col_stars:
+        try:
+            fb_val = st.feedback("stars", key=f"fb_{outfit_id}")
+        except AttributeError:
+            # Fallback for older Streamlit versions
+            chosen = st.radio(
+                "Stars",
+                options=["★", "★★", "★★★", "★★★★", "★★★★★"],
+                horizontal=True,
+                label_visibility="collapsed",
+                key=f"fb_{outfit_id}",
+            )
+            fb_val = ["★", "★★", "★★★", "★★★★", "★★★★★"].index(chosen) if chosen else None
+    with col_save:
+        save_clicked = st.button("♡ Save", key=f"save_{outfit_id}", use_container_width=True)
+
+    # Persist rating on any interaction
+    if save_clicked or (fb_val is not None and outfit_id not in st.session_state.outfit_ratings):
+        r_val = (fb_val + 1) if fb_val is not None else None
+        st.session_state.outfit_ratings[outfit_id] = {
+            "rating": r_val,
+            "saved": save_clicked,
+            "db_id": db_id,
+        }
+        if db_id:
+            storage.save_outfit_rating(user_id, db_id, r_val or 3, save_clicked)
+        if save_clicked:
+            st.toast("Saved to your style history ♡")
+        elif r_val:
+            st.toast(f"Rated {_star_str(r_val)}")
+        st.rerun()
 
 def display_outfit_recommendation(response_data):
     """Renders the visual moodboard."""
@@ -567,42 +711,76 @@ def normalize_image_url(url: str) -> str:
     parts = urlsplit(u)
     return urlunsplit((parts.scheme, parts.netloc, parts.path, "", ""))
 
-def _build_inspo_items(user_id: str, inspo_store) -> list:
-    """Fetch, deduplicate, and pre-fetch images for the inspiration board."""
-    raw = inspo_store.fetch_top_items(user_id=user_id, limit=100) or []
+def _needs_proxy(url: str) -> bool:
+    """Instagram CDN URLs are referrer-locked and won't load in an iframe — proxy them."""
+    return "cdninstagram.com" in url or "fbcdn.net" in url
 
-    # Deduplicate by normalised URL
+
+def _diversity_rank(items: list, window: int = 30) -> list:
+    """
+    Round-robin by source_name so no single source dominates the top of the board.
+    Within each source, items are already sorted by score (highest first).
+    We interleave them: take the best item from each source in rotation.
+    """
+    from collections import defaultdict
+    buckets = defaultdict(list)
+    for it in items:
+        buckets[it.get("source_name") or ""].append(it)
+    # Each bucket is already score-sorted from the DB query
+    ranked = []
+    while any(buckets.values()):
+        for key in list(buckets.keys()):
+            if buckets[key]:
+                ranked.append(buckets[key].pop(0))
+            else:
+                del buckets[key]
+        if len(ranked) >= window * 10:  # safety cap
+            break
+    return ranked
+
+
+def _build_inspo_items(user_id: str, inspo_store) -> list:
+    """
+    Fetch, diversity-rank, and deduplicate inspiration items.
+    Instagram CDN URLs are proxied server-side (fetched as bytes, sent as base64).
+    All other URLs are passed directly to the browser.
+    """
+    from concurrent.futures import ThreadPoolExecutor
+
+    # Fetch a large pool, diversity-rank, then serve the top 60
+    raw = inspo_store.fetch_top_items(user_id=user_id, limit=400) or []
+    raw = _diversity_rank(raw)[:60]
+
     seen_urls: set = set()
-    candidates = []
+    deduped = []
     for it in raw:
         url = normalize_image_url(it.get("image_url") or "")
         if not url or url in seen_urls:
             continue
         seen_urls.add(url)
-        candidates.append((it, url))
+        deduped.append(it)
 
-    MAX_SHOW = 24
-    MAX_CHECK = 80
-    batch = candidates[:MAX_CHECK]
+    # Proxy Instagram URLs in parallel; leave others as-is
+    proxy_items = [(i, it) for i, it in enumerate(deduped) if _needs_proxy(it.get("image_url", ""))]
 
-    # Parallel fetch — same pattern as CatalogClient.search_products_parallel
-    with ThreadPoolExecutor(max_workers=8) as ex:
-        bytes_list = list(ex.map(lambda p: fetch_image_bytes(p[1]), batch))
+    if proxy_items:
+        with ThreadPoolExecutor(max_workers=8) as ex:
+            futures = {ex.submit(fetch_image_bytes, it.get("image_url", "")): i for i, it in proxy_items}
+            for future, idx in futures.items():
+                img_bytes = future.result()
+                if img_bytes:
+                    deduped[idx] = {**deduped[idx], "image_bytes": img_bytes}
+                else:
+                    deduped[idx] = None  # mark broken
 
-    good = []
-    seen_hashes: set = set()
-    for (it, url), img_bytes in zip(batch, bytes_list):
-        if not img_bytes:
+    result = []
+    for it in deduped:
+        if it is None:
             continue
-        h = hash(img_bytes)
-        if h in seen_hashes:
-            continue
-        seen_hashes.add(h)
-        good.append({**it, "image_bytes": img_bytes})
-        if len(good) >= MAX_SHOW:
-            break
-
-    return good
+        # Persist saved state so hearts stay filled after page reload
+        it = {**it, "saved": it.get("feedback") == "save"}
+        result.append(it)
+    return result
 
 
 # =========================================================
@@ -678,48 +856,71 @@ st_components.html("""
 </script>
 """, height=0)
 
-tab_stylist, tab_inspo = st.tabs(["Stylist", "Inspiration Board"])
+# If the inspiration pipeline is running, show a full-page spinner and stop.
+# This must happen BEFORE tabs are rendered so the old tab content never shows.
+if st.session_state.get("_inspo_building"):
+    st.session_state.pop("_inspo_items", None)
+    st.markdown("<div style='height:2rem'></div>", unsafe_allow_html=True)
+    with st.spinner("Building your inspiration board… this takes about a minute."):
+        try:
+            from agents.inspiration_agent import run as run_inspiration
+            run_inspiration(user_id=user_id, user_profile=user_profile)
+            fetch_image_bytes.clear()
+        except Exception as e:
+            st.error(f"Pipeline failed: {e}")
+    del st.session_state["_inspo_building"]
+    st.session_state.pop("_inspo_items", None)
+    st.rerun()
+
+tab_stylist, tab_liked, tab_inspo = st.tabs(["Stylist", "Liked Outfits", "Inspiration Board"])
 
 with tab_stylist:
     # A. RENDER CHAT HISTORY
+    # Rating widget is rendered inline after each outfit so user follow-ups always
+    # appear below it, not sandwiched between the outfit and the rating.
     for msg in st.session_state.messages:
         with st.chat_message(msg["role"]):
             if isinstance(msg["content"], dict):
                 display_outfit_recommendation(msg["content"])
+                oid = msg.get("outfit_id", "")
+                if oid and oid in st.session_state.outfit_ratings:
+                    _render_rating_badge(st.session_state.outfit_ratings[oid])
             else:
                 st.markdown(msg["content"])
 
-    # B. CUSTOM CHAT INPUT
-    # Hero mode on first load (only the welcome message exists); inline once the user has typed
+        if msg.get("type") == "outfit":
+            oid = msg.get("outfit_id", "")
+            dbid = msg.get("db_id", "")
+            if oid and oid not in st.session_state.outfit_ratings:
+                _render_rating_widget(oid, dbid)
+
+    # C. CHAT INPUT — always native, always sticky at bottom like Claude/ChatGPT
     has_user_messages = any(m["role"] == "user" for m in st.session_state.messages)
-    input_mode = "inline" if has_user_messages else "hero"
+    if not has_user_messages:
+        _first_name = user_profile.get("full_name", "").split()[0]
+        _color = user_profile.get("color_season", "")
+        _body = user_profile.get("body_style_essence", "")
+        _profile = ", ".join(filter(bool, [_color, _body]))
+        st.markdown(
+            f"<div style='text-align:center; padding:3rem 0 1.5rem;'>"
+            f"<p style='font-family:Playfair Display,serif; font-size:1.15rem; font-style:italic; color:#9C9590;'>"
+            f"Hi <strong>{_first_name}</strong>!"
+            + (f" I see you're a <strong>{_profile}</strong>." if _profile else "")
+            + " What are you dressing for today?</p></div>",
+            unsafe_allow_html=True,
+        )
 
-    raw_input = chat_input_custom(
-        placeholder="e.g. I need a brunch outfit for Saturday…",
-        mode=input_mode,
-        user_name=user_profile.get("full_name", "").split()[0],
-        color_season=user_profile.get("color_season", ""),
-        body_type=user_profile.get("body_style_essence", ""),
-        key="chat_input_field",
-    )
-
-    # Deduplicate via nonce: each submit increments the JS counter so the same
-    # text submitted twice is still treated as two distinct messages.
-    prompt = None
-    if isinstance(raw_input, dict):
-        nonce = raw_input.get("nonce")
-        text  = (raw_input.get("text") or "").strip()
-        if text and nonce != st.session_state.get("_chat_nonce"):
-            st.session_state["_chat_nonce"] = nonce
-            prompt = text
+    prompt = st.chat_input("e.g. I need a brunch outfit for Saturday…")
 
     if prompt:
-        # 1. User Message
         st.session_state.messages.append({"role": "user", "content": prompt, "type": "text"})
-        with st.chat_message("user"):
-            st.markdown(prompt)
+        st.session_state["_pending_prompt"] = prompt
+        st.rerun()
 
-        # 2. Assistant Response
+    if "_pending_prompt" in st.session_state:
+        prompt = st.session_state.pop("_pending_prompt")
+
+        # Assistant Response
         with st.chat_message("assistant"):
             status_placeholder = st.empty()
             st.session_state.ux_events = []
@@ -751,7 +952,18 @@ with tab_stylist:
 
                 if isinstance(response_payload, dict):
                     display_outfit_recommendation(response_payload)
-                    st.session_state.messages.append({"role": "assistant", "content": response_payload, "type": "outfit"})
+                    _outfit_id = response_payload.get("id", "")
+                    _db_id = st.session_state.manager.conversation_state.get("last_revision_db_id") or ""
+                    st.session_state.messages.append({
+                        "role": "assistant",
+                        "content": response_payload,
+                        "type": "outfit",
+                        "outfit_id": _outfit_id,
+                        "db_id": _db_id,
+                    })
+                    # Show rating widget immediately after new outfit
+                    if _outfit_id and _outfit_id not in st.session_state.outfit_ratings:
+                        _render_rating_widget(_outfit_id, _db_id)
                 else:
                     st.markdown(response_payload)
                     st.session_state.messages.append({"role": "assistant", "content": response_payload, "type": "text"})
@@ -761,10 +973,120 @@ with tab_stylist:
                 st.error(f"Something went wrong: {e}")
                 st.code(traceback.format_exc())
 
+with tab_liked:
+    liked_rows = storage.fetch_liked_outfits(user_id, limit=20)
+    if not liked_rows:
+        st.markdown(
+            "<div style='text-align:center; padding: 3rem 0 1rem;'>"
+            "<p style='font-family:Playfair Display,serif; font-size:1.3rem; color:#1C1C1E;'>Nothing saved yet</p>"
+            "<p style='font-size:0.85rem; color:#9C9590; margin-bottom:1.5rem;'>"
+            "Rate an outfit 4 or 5 stars — or hit Save — and it'll live here.</p>"
+            "</div>",
+            unsafe_allow_html=True,
+        )
+    else:
+        st.markdown(
+            f"<p style='font-size:0.8rem; color:#9C9590; margin-bottom:1rem;'>"
+            f"{len(liked_rows)} look{'s' if len(liked_rows) != 1 else ''} saved</p>",
+            unsafe_allow_html=True,
+        )
+        for row in liked_rows:
+            final_outfit = row.get("final_outfit") or {}
+            occasion = final_outfit.get("occasion") or row.get("user_query") or "Outfit"
+            season_label = final_outfit.get("season") or ""
+            created_raw = row.get("created_at") or ""
+            created = created_raw[:10] if created_raw else ""
+            user_rating = row.get("user_rating")
+            user_saved = row.get("user_saved", False)
+            editor_score = row.get("final_score")
+            reasoning = (final_outfit.get("reasoning") or "").strip()
+
+            with st.container(border=True):
+                col_meta, col_rating = st.columns([5, 2])
+                with col_meta:
+                    st.markdown(
+                        f"<div style='font-family:Playfair Display,serif; font-size:1.05rem; "
+                        f"color:#1C1C1E; margin-bottom:2px;'>{occasion}</div>",
+                        unsafe_allow_html=True,
+                    )
+                    meta_parts = []
+                    if created:
+                        meta_parts.append(created)
+                    if season_label:
+                        meta_parts.append(season_label)
+                    if editor_score:
+                        meta_parts.append(f"Editor {editor_score}/10")
+                    if meta_parts:
+                        st.caption("  ·  ".join(meta_parts))
+                with col_rating:
+                    badge_parts = []
+                    if user_rating:
+                        badge_parts.append(_star_str(user_rating))
+                    if user_saved:
+                        badge_parts.append("♡")
+                    if badge_parts:
+                        st.markdown(
+                            f"<div style='color:#C9A96E; font-size:1.15rem; text-align:right; "
+                            f"padding-top:4px;'>{'  '.join(badge_parts)}</div>",
+                            unsafe_allow_html=True,
+                        )
+
+                # Reasoning snippet
+                if reasoning:
+                    st.markdown(
+                        f"<div style='margin-top:0.2rem; margin-bottom:0.75rem; font-size:0.82rem; "
+                        f"color:#6b7280; font-style:italic; line-height:1.45;'>"
+                        f"{reasoning[:220]}{'…' if len(reasoning) > 220 else ''}</div>",
+                        unsafe_allow_html=True,
+                    )
+
+                # Image grid — same as stylist tab; disk-cached so no extra API calls
+                opts = final_outfit.get("outfit_options") or []
+                items = (opts[0].get("items") or []) if opts and isinstance(opts[0], dict) else []
+                if items:
+                    visuals_map = st.session_state.catalog.search_products_parallel(items)
+                    img_cols = st.columns(len(items))
+                    for idx, it in enumerate(items):
+                        with img_cols[idx]:
+                            i_name = it.get("item_name") or ""
+                            i_cat = it.get("category") or ""
+                            is_owned = it.get("owned", False)
+                            if is_owned:
+                                st.markdown(
+                                    f"**{i_cat}** <span style='background:#d4edda;color:#155724;"
+                                    f"padding:2px 6px;border-radius:4px;font-size:12px;'>CLOSET</span>",
+                                    unsafe_allow_html=True,
+                                )
+                            else:
+                                st.markdown(f"**{i_cat}**")
+                            product = visuals_map.get(i_name)
+                            if product and product.get("image"):
+                                st.image(product["image"], width="stretch")
+                                st.caption(
+                                    f"[{product.get('title', 'View Item')[:30]}…]"
+                                    f"({product.get('link', '#')})"
+                                )
+                            else:
+                                st.caption(i_name)
+
 with tab_inspo:
-    items = _build_inspo_items(user_id, inspo_store)
+    if "_inspo_items" not in st.session_state:
+        st.session_state["_inspo_items"] = _build_inspo_items(user_id, inspo_store)
+    items = st.session_state["_inspo_items"]
+
     if not items:
-        st.info("No inspiration items yet. Run your pipeline to populate the board.")
+        st.markdown(
+            "<div style='text-align:center; padding: 3rem 0 1rem;'>"
+            "<p style='font-family:Playfair Display,serif; font-size:1.3rem; color:#1C1C1E;'>Your board is empty</p>"
+            "<p style='font-size:0.85rem; color:#9C9590; margin-bottom:1.5rem;'>We'll search for outfit photos of your style icons, brands, and motifs.</p>"
+            "</div>",
+            unsafe_allow_html=True,
+        )
+        col = st.columns([1, 2, 1])[1]
+        with col:
+            if st.button("Build my inspiration board", use_container_width=True):
+                st.session_state["_inspo_building"] = True
+                st.rerun()
     else:
         event = inspo_board_component(items=items, key="inspo_board")
         if event and isinstance(event, dict):
@@ -774,13 +1096,48 @@ with tab_inspo:
             if event != last:
                 st.session_state["_last_inspo_event"] = event
                 if action == "refresh":
-                    fetch_image_bytes.clear()
+                    # Full agent re-run — pulls fresh images, not just a cache clear
+                    st.session_state["_inspo_building"] = True
+                    st.session_state.pop("_inspo_items", None)
                     st.rerun()
                 elif action == "save" and item_id:
-                    # No rerun — JS handles the ♡→♥ visual; rerunning destroys component state
-                    inspo_store.log_feedback(user_id, item_id, "save")
+                    inspo_store.save_item(user_id, item_id)
+                    # Update in-place so heart stays filled without a full reload
+                    saved_item = None
+                    for it in st.session_state.get("_inspo_items", []):
+                        if it.get("id") == item_id:
+                            it["saved"] = True
+                            saved_item = it
+                            break
                     st.toast("Saved to your style DNA ✦")
+                    # Track save counts per source — trigger mini-expansion at 3
+                    save_counts = st.session_state.setdefault("_inspo_save_counts", {})
+                    if saved_item:
+                        src = saved_item.get("source_name") or ""
+                        save_counts[src] = save_counts.get(src, 0) + 1
+                        if save_counts[src] == 3:
+                            # Fire mini-expansion in background thread
+                            import threading
+                            from agents.inspiration_agent import mini_expand
+                            threading.Thread(
+                                target=mini_expand,
+                                kwargs=dict(
+                                    user_id=user_id,
+                                    source_name=src,
+                                    source_type=saved_item.get("source_type") or "icon",
+                                    tags=saved_item.get("tags") or [],
+                                    storage=storage,
+                                    inspiration_store=inspo_store,
+                                ),
+                                daemon=True,
+                            ).start()
+                            st.toast(f"Finding more from {src}… ✦")
                 elif action == "hide" and item_id:
-                    # No rerun — JS removes the card with animation
-                    inspo_store.log_feedback(user_id, item_id, "hide")
+                    # Delete permanently — item will never resurface
+                    inspo_store.delete_item(user_id, item_id)
+                    # Remove from session cache so it doesn't reappear on rerun
+                    st.session_state["_inspo_items"] = [
+                        it for it in st.session_state.get("_inspo_items", [])
+                        if it.get("id") != item_id
+                    ]
 

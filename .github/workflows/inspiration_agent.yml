@@ -1,0 +1,72 @@
+name: Inspiration Agent (Weekly)
+
+on:
+  schedule:
+    - cron: '0 15 * * 1'   # Every Monday at 15:00 UTC (11am EDT)
+  workflow_dispatch:         # manual trigger from GitHub Actions UI
+
+jobs:
+  # ── Job 1: find which users are due for a refresh ────────────────────
+  get-users:
+    runs-on: ubuntu-latest
+    outputs:
+      user_ids: ${{ steps.fetch.outputs.user_ids }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - run: pip install -r requirements.txt
+
+      - id: fetch
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: python agents/inspiration_agent.py --list-due
+
+  # ── Job 2: one matrix job per due user, run in parallel ──────────────
+  run-per-user:
+    needs: get-users
+    if: ${{ needs.get-users.outputs.user_ids != '[]' && needs.get-users.outputs.user_ids != '' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      matrix:
+        user_id: ${{ fromJson(needs.get-users.outputs.user_ids) }}
+      max-parallel: 5        # cap Apify concurrency + cost
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - run: pip install -r requirements.txt
+
+      - name: Run inspiration agent for user ${{ matrix.user_id }}
+        id: run
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+          GOOGLE_CSE_ID: ${{ secrets.GOOGLE_CSE_ID }}
+          APIFY_API_KEY: ${{ secrets.APIFY_API_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: |
+          python agents/inspiration_agent.py --user-id ${{ matrix.user_id }} \
+            2>&1 | tee /tmp/inspiration_${{ matrix.user_id }}.txt
+
+      - name: Print run summary
+        if: always()
+        run: |
+          echo "=== Inspiration Agent run for user ${{ matrix.user_id }} ==="
+          echo "Status: ${{ job.status }}"
+          cat /tmp/inspiration_${{ matrix.user_id }}.txt || true

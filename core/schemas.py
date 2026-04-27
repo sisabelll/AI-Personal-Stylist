@@ -403,6 +403,7 @@ class SimilarIcon(BaseModel):
     name: str = Field(min_length=2, max_length=60, description="Person or style figure name.")
     relevance: Literal["high", "medium", "low"] = "high"
     reason: str = Field(min_length=10, max_length=140, description="Concrete linkage to the seeds.")
+    instagram_handle: Optional[str] = Field(default=None, max_length=40, description="Instagram username without @. Null if unknown.")
 
     @field_validator("name", mode="before")
     @classmethod
@@ -439,6 +440,7 @@ class BrandAngle(BaseModel):
     angle: Literal["lookbook", "campaign", "runway", "street_style", "editorial", "best_sellers"] = "lookbook"
     query_hint: str = Field(min_length=6, max_length=80, description="Short, reusable query hint.")
     priority: int = Field(ge=1, le=3, default=2)
+    instagram_handle: Optional[str] = Field(default=None, max_length=40, description="Brand's Instagram username without @. Null if unknown.")
 
     @field_validator("brand", "query_hint", mode="before")
     @classmethod

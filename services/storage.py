@@ -117,6 +117,53 @@ class StorageService:
         """
         return self.supabase.table("styling_revisions").insert(row).execute()
     
+    def save_outfit_rating(self, user_id: str, revision_id: str, user_rating: int, user_saved: bool = False):
+        """Updates a styling_revisions row with the user's star rating and saved flag."""
+        try:
+            self.supabase.table("styling_revisions").update({
+                "user_rating": user_rating,
+                "user_saved": user_saved,
+            }).eq("id", revision_id).eq("user_id", user_id).execute()
+            return True
+        except Exception as e:
+            print(f"Error saving outfit rating: {e}")
+            return False
+
+    def fetch_liked_outfits(self, user_id: str, limit: int = 20):
+        """Fetch outfits the user rated 4+ stars or explicitly saved."""
+        try:
+            response = (
+                self.supabase.table("styling_revisions")
+                .select("id, user_query, final_outfit, final_score, user_rating, user_saved, style_tags, lessons, created_at")
+                .eq("user_id", user_id)
+                .or_("user_rating.gte.4,user_saved.eq.true")
+                .order("created_at", desc=True)
+                .limit(limit)
+                .execute()
+            )
+            return response.data or []
+        except Exception as e:
+            print(f"Error fetching liked outfits: {e}")
+            return []
+
+    def fetch_low_rated_lessons(self, user_id: str, limit: int = 5):
+        """Fetch outfits the user rated 1-2 stars to derive patterns to avoid."""
+        try:
+            response = (
+                self.supabase.table("styling_revisions")
+                .select("lessons, style_tags, user_rating")
+                .eq("user_id", user_id)
+                .lte("user_rating", 2)
+                .not_.is_("user_rating", "null")
+                .order("created_at", desc=True)
+                .limit(limit)
+                .execute()
+            )
+            return response.data or []
+        except Exception as e:
+            print(f"Error fetching low-rated lessons: {e}")
+            return []
+
     def fetch_accepted_revisions(self, user_id: str, tags: list[str], limit: int = 5):
         q = (
             self.supabase.table("styling_revisions")

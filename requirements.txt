@@ -1,4 +1,5 @@
 streamlit==1.50.0
+streamlit-cookies-controller==0.0.4
 openai==2.15.0
 python-dotenv==1.2.1
 pydantic==2.12.5
