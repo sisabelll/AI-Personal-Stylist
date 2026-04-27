@@ -41,6 +41,9 @@ class Config:
     GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
     GOOGLE_CSE_ID = os.getenv("GOOGLE_CSE_ID")
 
+    # --- Apify (Instagram scraper) ---
+    APIFY_API_KEY = os.getenv("APIFY_API_KEY")
+
     @classmethod
     def validate(cls):
         """Checks if critical keys are missing."""

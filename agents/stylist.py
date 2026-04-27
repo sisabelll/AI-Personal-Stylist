@@ -183,6 +183,30 @@ class StyleStylist:
             - Palette reminder: must respect user's color season ({color_season})
             """.strip()
 
+        # Inspiration knowledge graph — omit if user explicitly says to ignore it
+        inspo_ctx = situational_signals.get("inspiration_context") or {}
+        _ignore_inspo_phrases = ("ignore my inspiration", "don't use my inspiration", "without inspiration", "fresh start")
+        _ignore_inspo = any(p in (user_query or "").lower() for p in _ignore_inspo_phrases)
+        taste_block = ""
+        if inspo_ctx and not _ignore_inspo:
+            icons_line = ", ".join(inspo_ctx.get("seed_icons") or []) or "N/A"
+            similar_line = ", ".join(inspo_ctx.get("similar_icons") or []) or "N/A"
+            brands_line = ", ".join(inspo_ctx.get("seed_brands") or []) or "N/A"
+            motifs_line = "\n".join(
+                f"  - {m}" for m in (inspo_ctx.get("top_motifs") or [])
+            ) or "  N/A"
+            taste_block = f"""
+            TASTE INTELLIGENCE (from user's inspiration board — always active unless user says to ignore)
+            Use this to infer aesthetic lane and make choices feel personally resonant, even when the user
+            hasn't named a specific reference. Do NOT cosplay these icons — translate their essence.
+
+            Style icons the user resonates with: {icons_line}
+            Similar icons with aligned taste: {similar_line}
+            Brands they gravitate toward: {brands_line}
+            Recurring styling motifs (prioritize these silhouettes/moves when relevant):
+{motifs_line}
+            """.strip()
+
         trend_context = situational_signals.get("trend_context") or {}
         trend_block = ""
         trend_cards = trend_context.get("trend_cards") or []
@@ -330,7 +354,7 @@ RULE: Every silhouette and fabric choice must reflect {body_type} principles. It
         """.strip()
 
         system_prompt = "\n\n".join(
-            filter(bool, [base_block, program_block, inspiration_block, trend_block, context_block, color_rules_block, body_rules_block, edit_block, physics_block])
+            filter(bool, [base_block, program_block, taste_block, inspiration_block, trend_block, context_block, color_rules_block, body_rules_block, edit_block, physics_block])
         ).strip()
 
         editor_plan = situational_signals.get("editor_plan")

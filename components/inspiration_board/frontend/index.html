@@ -59,15 +59,31 @@
       position: relative;
       background: #ede7df;
       cursor: default;
-      transition: box-shadow 0.2s ease;
+      /* isolation: isolate keeps the overlay's opacity transition from
+         triggering a Safari compositing-layer flush on the image */
+      isolation: isolate;
     }
-    .pin:hover { box-shadow: 0 8px 24px rgba(0,0,0,0.18); }
+    /* Shadow lives on ::after so it never shares a compositing layer with
+       the image — eliminates the Safari flicker on hover entirely */
+    .pin::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: 16px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+      opacity: 0;
+      transition: opacity 0.2s ease;
+      pointer-events: none;
+    }
+    .pin:hover::after { opacity: 1; }
 
     .pin img {
       width: 100%;
       display: block;
       opacity: 0;
       transition: opacity 0.4s ease;
+      /* Force image onto its own GPU layer so overlay transitions never repaint it */
+      transform: translateZ(0);
     }
     .pin img.loaded { opacity: 1; }
 
@@ -111,9 +127,7 @@
 
     /* ── Buttons ────────────────────────────────────────── */
     .pin-btn {
-      background: rgba(255,255,255,0.22);
-      backdrop-filter: blur(6px);
-      -webkit-backdrop-filter: blur(6px);
+      background: rgba(0,0,0,0.38);
       border: none;
       border-radius: 50%;
       width: 34px;
@@ -127,9 +141,9 @@
       line-height: 1;
       text-decoration: none;
       flex-shrink: 0;
-      transition: background 0.15s, transform 0.12s;
+      transition: background 0.15s;
     }
-    .pin-btn:hover    { background: rgba(255,255,255,0.40); transform: scale(1.1); }
+    .pin-btn:hover    { background: rgba(0,0,0,0.58); }
     .pin-btn.saved    { background: #C9A96E; }
     .pin-btn.saved:hover { background: #b8924f; }
 
@@ -137,9 +151,7 @@
     .tag {
       font-size: 0.58rem;
       letter-spacing: 0.06em;
-      background: rgba(255,255,255,0.22);
-      backdrop-filter: blur(4px);
-      -webkit-backdrop-filter: blur(4px);
+      background: rgba(0,0,0,0.35);
       color: #fff;
       padding: 2px 8px;
       border-radius: 99px;
@@ -193,10 +205,16 @@
       window.parent.postMessage({ isStreamlitMessage: true, type, ...extra }, '*');
     }
 
-    const ro = new ResizeObserver(() => {
-      toSL('streamlit:setFrameHeight', { height: document.body.scrollHeight + 8 });
-    });
-    ro.observe(document.body);
+    // Set iframe height once — called after render and after images settle.
+    // Never driven by ResizeObserver (which fires on every hover/transition
+    // and causes Streamlit to resize the iframe mid-hover, flickering images).
+    let _heightRaf;
+    function setHeight() {
+      cancelAnimationFrame(_heightRaf);
+      _heightRaf = requestAnimationFrame(() => {
+        toSL('streamlit:setFrameHeight', { height: document.body.scrollHeight + 8 });
+      });
+    }
 
     function sendValue(value) {
       toSL('streamlit:setComponentValue', { value, dataType: 'json' });
@@ -208,6 +226,7 @@
 
     const dismissed = new Set();
     const saved     = new Set();
+    let _lastItemKey = '';
 
     // ── Build one card ────────────────────────────────────
 
@@ -218,8 +237,8 @@
       // Image — always in normal flow, fades in on load
       const img = document.createElement('img');
       img.alt = item.caption || '';
-      img.addEventListener('load',  () => img.classList.add('loaded'));
-      img.addEventListener('error', () => pin.remove());
+      img.addEventListener('load',  () => { img.classList.add('loaded'); setHeight(); });
+      img.addEventListener('error', () => { pin.remove(); setHeight(); });
       img.src = item.src;
       pin.appendChild(img);
 
@@ -275,6 +294,8 @@
         actions.appendChild(link);
       }
 
+      // Seed saved set from persisted DB state so hearts survive page reload
+      if (item.saved) saved.add(item.id);
       const isSaved = saved.has(item.id);
       const saveBtn = document.createElement('button');
       saveBtn.type = 'button';
@@ -305,7 +326,6 @@
         pin.appendChild(sourceEl);
       }
 
-      // Hover: JS events (reliable across all iframe contexts)
       pin.addEventListener('mouseenter', () => {
         overlay.classList.add('visible');
         if (sourceEl) sourceEl.classList.add('hidden');
@@ -350,6 +370,7 @@
         `${visible.length} items · save what speaks to you, hide what doesn't`;
 
       visible.forEach(item => board.appendChild(buildPin(item)));
+      setHeight();
     }
 
     // ── Wiring ────────────────────────────────────────────
@@ -360,7 +381,13 @@
 
     window.addEventListener('message', event => {
       if (!event.data || event.data.type !== 'streamlit:render') return;
-      renderBoard((event.data.args || {}).items || []);
+      const items = (event.data.args || {}).items || [];
+      // Skip rebuild if the item set hasn't changed — prevents flashing on
+      // reruns triggered by save/hide events when the item list is identical.
+      const key = items.map(it => it.id).join(',');
+      if (key === _lastItemKey) return;
+      _lastItemKey = key;
+      renderBoard(items);
     });
   </script>
 </body>

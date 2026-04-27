@@ -170,28 +170,29 @@ class RefinementAgent:
 
         Return STRICT JSON that matches the RefinementAnalysis schema.
 
-        IMPORTANT:
-        - item_directives is the SINGLE SOURCE OF TRUTH.
-        - If user says “my ___” / “I want to wear my ___” / “I own ___”:
-        output item_directive intent="anchor_owned", owned=true, with item_name (required),
-        and must_include containing the exact phrase as a single element (required).
-        anchor_owned implies the outfit should include that item (replace category if needed).
+        INTENT RULES:
 
-        - attribute_update never implies swapping the category.
-        - swap_category is only for explicit "change X" / "replace X" category swaps.
-        - new_outfit only when the user asks to start over.
+        swap_category — any signal that an item should NOT remain in the outfit (dislike,
+        unavailability, preference, removal, substitution, hypothetical swap). If the user
+        would not wear this item, replace it.
 
-        STYLE:
-        - must_include/must_avoid are short concrete tokens or short phrases (1–4 words).
-        - No brands unless the user said them.
+        attribute_update — user wants to KEEP the item type but change a descriptor only
+        (color, fit, material). Use only when they are happy with the category itself.
 
-        CATEGORY MAPPING EXAMPLES:
-        - "I want to wear pants/jeans/trousers/slacks/shorts" -> intent="swap_category", target_category="Bottom"
-        - "I want to wear a skirt" -> intent="swap_category", target_category="Bottom"
-        - "I want to wear a sweater/hoodie/blouse/shirt/top" -> intent="swap_category", target_category="Top"
-        - "I want a dress/gown/one-piece" -> intent="swap_category", target_category="OnePiece"
-        - "Swap shoes" -> intent="swap_category", target_category="Shoes"
-        - "Swap accessories" -> intent="swap_category", target_category="Accessory"
+        anchor_owned — user owns a specific item and wants to build around it
+        (“my white sneakers”, “I want to wear my leather jacket”). Requires item_name.
+
+        new_outfit — user asks to start completely over.
+
+        CATEGORY MAPPING (map item names to canonical categories):
+        - pants/jeans/trousers/slacks/skirt/shorts → Bottom
+        - top/blouse/shirt/tee/sweater/sweatshirt/hoodie → Top
+        - dress/gown/jumpsuit/one-piece → OnePiece
+        - shoes/boots/sneakers/heels/flats/sandals/loafers → Shoes
+        - blazer/jacket/coat/cardigan/vest/trench/bomber → Outerwear
+        - bag/jewelry/earrings/necklace/bracelet/belt/hat/scarf → Accessory
+
+        STYLE: must_include/must_avoid are short tokens (1–4 words). No brands unless stated.
         """.strip()
 
         outfit_context = self._build_outfit_context(current_outfit)
@@ -225,30 +226,6 @@ class RefinementAgent:
 
             # Derive legacy fields deterministically
             data = self._derive_legacy_fields(data)
-
-            # Fallback: infer swaps if directives are empty (safety net for LLM misses)
-            if not data.get("item_directives"):
-                text = (user_input or "").lower()
-                inferred = set()
-                bottom_terms = ("pants", "jeans", "trousers", "slacks", "skirt", "shorts")
-                top_terms = ("top", "blouse", "shirt", "tee", "tshirt", "sweater", "sweatshirt", "hoodie")
-                onepiece_terms = ("dress", "gown", "onepiece", "one-piece")
-                shoes_terms = ("shoes", "boots", "sneakers", "heels", "flats")
-                accessory_terms = ("accessory", "accessories", "bag", "jewelry", "earrings", "necklace", "bracelet")
-
-                if any(t in text for t in bottom_terms):
-                    inferred.add("Bottom")
-                if any(t in text for t in top_terms):
-                    inferred.add("Top")
-                if any(t in text for t in onepiece_terms):
-                    inferred.add("OnePiece")
-                if any(t in text for t in shoes_terms):
-                    inferred.add("Shoes")
-                if any(t in text for t in accessory_terms):
-                    inferred.add("Accessory")
-
-                if inferred:
-                    data["swap_out"] = sorted(inferred)
 
             logger.debug("directives=%s swap_out=%s owned_anchors=%s attribute_corrections=%s",
                          data.get("item_directives"), data.get("swap_out"),

@@ -25,6 +25,7 @@ from agents.editor import EditorAgent
 # --- SERVICES ---
 from services.catalog import CatalogClient
 from services.trends_retriever import TrendsRetriever, simple_rank, build_trend_context_pack
+from services.inspiration_store import InspirationStore
 
 class ConversationManager:
     def __init__(self, client, user_profile, style_rules, storage=None, dev_mode=False):
@@ -103,6 +104,7 @@ class ConversationManager:
             "location": self.user_profile.get("location_city", "NYC"),
             "aesthetic": self.current_context.get("aesthetic_bias", "clean_chic"),
             "style_interpretation": style_interp,
+            "inspiration_context": self._get_inspiration_context(),
         }
 
     def _get_current_outfit_items(self) -> List[Dict[str, Any]]:
@@ -347,6 +349,53 @@ class ConversationManager:
             logger.warning("Trend retrieval failed: %s\n%s", e, traceback.format_exc())
             return {}
 
+    def _get_inspiration_context(self) -> dict:
+        """
+        Load the user's stored inspiration knowledge graph from Supabase and
+        return a compact dict for the stylist prompt.
+
+        Returns {} when:
+          - storage is unavailable
+          - the knowledge graph hasn't been built yet
+          - any error occurs (fail-silent so the session still works)
+        """
+        if not self.storage:
+            return {}
+
+        user_id = str(self.user_profile.get("id") or "")
+        if not user_id:
+            return {}
+
+        try:
+            store = InspirationStore(self.storage)
+            kg = store.fetch_knowledge_graph(user_id)
+            if not kg:
+                return {}
+
+            # Compact version for the prompt — avoid sending the full JSONB blobs
+            similar_icons = [
+                i.get("name") for i in (kg.get("similar_icons") or [])
+                if i.get("name")
+            ]
+            top_motifs = [
+                m.get("phrase") for m in (kg.get("motifs") or [])
+                if m.get("phrase")
+            ]
+            seed_brands = kg.get("seed_brands") or []
+
+            if not similar_icons and not top_motifs and not seed_brands:
+                return {}
+
+            return {
+                "similar_icons": similar_icons[:8],
+                "top_motifs": top_motifs[:6],
+                "seed_icons": kg.get("seed_icons") or [],
+                "seed_brands": seed_brands,
+            }
+        except Exception as e:
+            logger.warning("Inspiration context retrieval failed: %s", e)
+            return {}
+
     def _generate_with_editor_pass(
         self,
         user_query: str,
@@ -549,7 +598,10 @@ class ConversationManager:
                     "style_tags": style_tags,
                     "lessons": lessons,
                 }
-                self.storage.insert_styling_revision(row)
+                resp = self.storage.insert_styling_revision(row)
+                resp_data = getattr(resp, "data", None) or []
+                if resp_data and isinstance(resp_data[0], dict):
+                    self.conversation_state["last_revision_db_id"] = resp_data[0].get("id")
                 logger.debug("Stored revision in Supabase (accepted=%s, tags=%d, lessons=%d)", accepted, len(style_tags), len(lessons))
             except Exception as e:
                 logger.warning("Supabase insert failed: %s", e)
@@ -739,7 +791,34 @@ class ConversationManager:
             except Exception as e:
                 logger.warning("Fetch revisions failed: %s\n%s", e, traceback.format_exc())
 
-        editorial_nos = (base_editorial_nos + learned)[:10]
+        # Boost RL with user-confirmed high ratings (prepend = higher priority than editor lessons)
+        if self.storage:
+            try:
+                user_id_rl = self.user_profile.get("id") or self.user_profile.get("user_id")
+                liked_rows = self.storage.fetch_liked_outfits(user_id=user_id_rl, limit=5)
+                for r in (liked_rows or []):
+                    for lesson in (r.get("lessons") or []):
+                        if lesson and lesson not in learned:
+                            learned.insert(0, lesson)  # user-validated lessons take priority
+            except Exception as e:
+                logger.warning("Fetch liked outfits for RL failed: %s", e)
+
+        # Anti-patterns from user-disliked outfits (1–2 stars)
+        extra_nos = []
+        if self.storage:
+            try:
+                user_id_rl = self.user_profile.get("id") or self.user_profile.get("user_id")
+                disliked_rows = self.storage.fetch_low_rated_lessons(user_id=user_id_rl, limit=3)
+                for r in (disliked_rows or []):
+                    for lesson in (r.get("lessons") or []):
+                        if lesson:
+                            anti = f"User disliked this pattern — avoid: {lesson}"
+                            if anti not in base_editorial_nos and anti not in extra_nos:
+                                extra_nos.append(anti)
+            except Exception as e:
+                logger.warning("Fetch low-rated lessons for RL failed: %s", e)
+
+        editorial_nos = (base_editorial_nos + learned + extra_nos)[:12]
         hero_strategy = "Choose exactly one hero move (proportion OR texture OR accessory) and keep the rest quiet."
         style_brief = (
             f"Create a stylish, intentional look (not generic). "

@@ -593,6 +593,10 @@ def run(
 
         prepared: List[TrendCard] = []
         for c_llm in draft.cards:
+            if not (c_llm.trend_name or "").strip():
+                print(f"⚠️ Skip (empty trend_name): {c_llm}")
+                continue
+
             c_full = TrendCard(
                 trend_key="__tmp__",
                 season=season,

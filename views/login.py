@@ -1,7 +1,9 @@
+import os
 import streamlit as st
 import time
+from urllib.parse import quote
 
-def render_login(supabase):
+def render_login(supabase, on_login=None):
     """
     Renders the Login/Signup UI.
     Handles authentication via Supabase and updates st.session_state.
@@ -45,9 +47,11 @@ def render_login(supabase):
                                 st.session_state["session"] = response.session
                                 st.session_state["user"] = response.user
                                 st.session_state["user_id"] = response.user.id
+                                if on_login:
+                                    on_login(response.session)
                                 st.success("Welcome back! Loading your profile...")
                                 time.sleep(1)
-                                st.rerun() # Refresh app to show the main interface
+                                st.rerun()
                                 
                     except Exception as e:
                         # Friendly error message
@@ -90,27 +94,23 @@ def render_login(supabase):
                     except Exception as e:
                         st.error(f"Sign up failed: {str(e)}")
 
-    # --- OPTIONAL: GOOGLE OAUTH SECTION ---
-    # st.markdown("---")
-    # st.markdown("### Or continue with")
-    
-    # if st.button("Google", width='stretch'):
-    #     try:
-    #         # Detect where the app is running (Localhost vs. Cloud)
-    #         # You must set APP_URL in .streamlit/secrets.toml for cloud deployment
-    #         # Default to localhost for testing
-    #         callback_url = st.secrets.get("APP_URL", "http://localhost:8501")
-            
-    #         response = supabase.auth.sign_in_with_oauth({
-    #             "provider": "google",
-    #             "options": {
-    #                 "redirectTo": callback_url
-    #             }
-    #         })
-            
-    #         # OAuth requires a browser redirect
-    #         if response.url:
-    #             st.markdown(f'<meta http-equiv="refresh" content="0;url={response.url}">', unsafe_allow_html=True)
-                
-    #     except Exception as e:
-    #         st.error(f"Google Login Error: {e}")
+    # --- GOOGLE OAUTH ---
+    st.markdown("---")
+    st.markdown("<p style='text-align:center;color:#888;font-size:0.85rem;margin-bottom:0.5rem'>or continue with</p>", unsafe_allow_html=True)
+
+    if st.button("Continue with Google", use_container_width=True):
+        # Build the Supabase OAuth URL manually — no PKCE code_challenge —
+        # so Supabase uses implicit flow and returns tokens in the URL hash
+        # instead of requiring a PKCE code exchange (which breaks in Streamlit
+        # because the server restarts between redirect legs and loses memory).
+        supabase_url = os.getenv("SUPABASE_URL", "")
+        callback_url = os.getenv("APP_URL", "http://localhost:8501")
+        oauth_url = (
+            f"{supabase_url}/auth/v1/authorize"
+            f"?provider=google"
+            f"&redirect_to={quote(callback_url, safe='')}"
+        )
+        st.markdown(
+            f'<meta http-equiv="refresh" content="0;url={oauth_url}">',
+            unsafe_allow_html=True,
+        )

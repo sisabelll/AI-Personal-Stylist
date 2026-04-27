@@ -50,7 +50,7 @@ const GLOBAL_CSS = `
     transition: transform 0.2s ease, box-shadow 0.2s ease;
   }
   .pin-card:hover {
-    transform: scale(1.016);
+    transform: translateY(-3px);
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
     z-index: 2;
   }
@@ -325,12 +325,17 @@ function InspirationBoard({ args }: ComponentProps) {
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
   const [saved, setSaved] = useState<Set<string>>(new Set());
 
-  // Keep iframe height in sync with content
+  // Keep iframe height in sync with content — debounced so CSS hover
+  // transitions don't trigger a resize loop via setFrameHeight.
   useEffect(() => {
     if (!boardRef.current) return;
-    const ro = new ResizeObserver(() => Streamlit.setFrameHeight());
+    let raf: number;
+    const ro = new ResizeObserver(() => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => Streamlit.setFrameHeight());
+    });
     ro.observe(boardRef.current);
-    return () => ro.disconnect();
+    return () => { ro.disconnect(); cancelAnimationFrame(raf); };
   }, []);
 
   const handleSave = useCallback((id: string) => {
