@@ -7,6 +7,16 @@ from dotenv import load_dotenv
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / ".env")
 
+# On Streamlit Cloud, secrets live in st.secrets (injected as env vars at boot).
+# Explicitly push them into os.environ so os.getenv() works everywhere.
+try:
+    import streamlit as st
+    for _k, _v in st.secrets.items():
+        if isinstance(_v, str) and _k not in os.environ:
+            os.environ[_k] = _v
+except Exception:
+    pass
+
 # Configure logging once at import time.
 # Set LOG_LEVEL=DEBUG in .env to see detailed debug output.
 _level = os.getenv("LOG_LEVEL", "INFO").upper()
