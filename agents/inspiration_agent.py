@@ -467,7 +467,10 @@ def run(user_id: str, user_profile: dict) -> None:
                 brand_handles.append(handle)
                 seen_brands.add(brand)
 
-        all_handles = list(dict.fromkeys(seed_handles + brand_handles))  # dedup, preserve order
+        all_handles = [
+            h for h in dict.fromkeys(seed_handles + brand_handles)
+            if h and h.lower() not in ("null", "none", "")
+        ]
         all_handles = all_handles[:12]  # cap to control Apify cost
 
         if not all_handles:
@@ -507,7 +510,7 @@ def run(user_id: str, user_profile: dict) -> None:
                     })
 
             print(f"✅ Retrieved {len(ig_items)} Instagram posts")
-            ig_items = _filter_fashion_posts(ig_items, client)
+            ig_items = _filter_fashion_posts(ig_items, llm)
             print(f"✅ {len(ig_items)} posts passed fashion relevance filter")
             if ig_items:
                 inspiration_store.upsert_items(user_id, ig_items)
