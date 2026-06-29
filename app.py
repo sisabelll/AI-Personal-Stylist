@@ -870,14 +870,18 @@ st_components.html("""
 if st.session_state.get("_inspo_building"):
     st.session_state.pop("_inspo_items", None)
     st.markdown("<div style='height:2rem'></div>", unsafe_allow_html=True)
+    _pipeline_error = None
     with st.spinner("Building your inspiration board… this takes about a minute."):
         try:
             from agents.inspiration_agent import run as run_inspiration
             run_inspiration(user_id=user_id, user_profile=user_profile)
             fetch_image_bytes.clear()
         except Exception as e:
-            st.error(f"Pipeline failed: {e}")
+            _pipeline_error = e
     del st.session_state["_inspo_building"]
+    if _pipeline_error:
+        st.error(f"Pipeline failed: {_pipeline_error}")
+        st.stop()
     st.session_state.pop("_inspo_items", None)
     st.rerun()
 
