@@ -487,10 +487,13 @@ if not st.session_state["profile_complete"]:
 # ✅ READY: Load User Profile
 user_profile = st.session_state["user_profile"]
 
-# 🎨 FIRST-TIME BOARD BUILD: trigger automatically if user has no inspiration items yet
+# 🎨 FIRST-TIME BOARD BUILD: trigger once if user has never had a pipeline run.
+# Check inspiration_knowledge.last_refreshed_at — if null/missing they're new.
+# Use session state to avoid re-querying on every rerun within the same session.
 if not st.session_state.get("_inspo_first_run_checked"):
     st.session_state["_inspo_first_run_checked"] = True
-    if not inspo_store.fetch_top_items(user_id=user_id, limit=1):
+    kg = inspo_store.fetch_knowledge_graph(user_id)
+    if not kg.get("last_refreshed_at"):
         st.session_state["_inspo_building"] = True
 
 # =========================================================
