@@ -1077,7 +1077,11 @@ with tab_liked:
 
 with tab_inspo:
     if "_inspo_items" not in st.session_state:
-        st.session_state["_inspo_items"] = _build_inspo_items(user_id, inspo_store)
+        try:
+            st.session_state["_inspo_items"] = _build_inspo_items(user_id, inspo_store)
+        except Exception as _e:
+            st.error(f"Failed to load inspiration board: {_e}")
+            st.session_state["_inspo_items"] = []
     items = st.session_state["_inspo_items"]
 
     if not items:

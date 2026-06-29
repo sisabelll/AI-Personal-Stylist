@@ -17,20 +17,26 @@ def inspiration_board(items: list, key: Optional[str] = None) -> Optional[dict]:
     """
     component_items = []
     for it in items:
+        item_id = it.get("id")
+        if not item_id:
+            continue
         img_bytes: Optional[bytes] = it.get("image_bytes")
         if img_bytes:
             b64 = base64.b64encode(img_bytes).decode()
             src = f"data:image/jpeg;base64,{b64}"
         else:
             src = it.get("image_url") or ""
+        if not src:
+            continue
 
         component_items.append({
-            "id": it["id"],
+            "id": item_id,
             "src": src,
             "page_url": it.get("page_url"),
             "caption": it.get("caption"),
             "tags": it.get("tags") or [],
             "source_name": it.get("source_name"),
+            "saved": bool(it.get("saved")),
         })
 
     return _component(items=component_items, key=key, default=None)
