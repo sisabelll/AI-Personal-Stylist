@@ -18,7 +18,7 @@ logger = get_logger(__name__)
 # ========================
 DAILY_BUDGET_USD = 0.30     # ~$9/month across all users
 MAX_IMAGES_PER_QUERY = 5
-MAX_QUERIES_PER_RUN = 20    # caps Google CSE API calls per user run (full run)
+MAX_QUERIES_PER_RUN = 10    # caps Google CSE API calls per user run (free tier: 100/day)
 MAX_MINI_QUERIES = 4        # Google CSE calls for a mini-expansion
 MINI_IMAGES_PER_QUERY = 8   # more images per query for mini-expansion
 
