@@ -433,11 +433,10 @@ def run(user_id: str, user_profile: dict) -> None:
     print(f"✅ Retrieved {len(items)} images")
 
     if not items:
-        print("⚠️  No images returned — check Google CSE API quota/config.")
-        return
-
-    # -------- STAGE 4: Upsert inspiration items (web) --------
-    inspiration_store.upsert_items(user_id, items)
+        print("⚠️  No web images returned (quota exhausted?) — continuing to Instagram stage.")
+    else:
+        # -------- STAGE 4: Upsert inspiration items (web) --------
+        inspiration_store.upsert_items(user_id, items)
     print(f"✅ Upserted {len(items)} web inspiration items for user {user_id}")
 
     # -------- STAGE 5: Instagram posts via Apify --------
