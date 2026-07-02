@@ -92,11 +92,13 @@ class InspirationStore:
             logger.warning("[InspirationStore] delete_instagram_items failed: %s", e)
 
     def fetch_top_items(self, user_id: str, limit: int = 400) -> List[dict]:
+        # Use or_ to include rows where feedback IS NULL (unrated) OR not 'hide'.
+        # Plain .neq("feedback","hide") silently excludes NULL rows in PostgreSQL.
         resp = (
             self.supabase.table("inspiration_items")
             .select("*")
             .eq("user_id", user_id)
-            .neq("feedback", "hide")   # never surface hidden items
+            .or_("feedback.is.null,feedback.neq.hide")
             .order("score", desc=True)
             .limit(limit)
             .execute()
