@@ -1,10 +1,10 @@
 from __future__ import annotations
 from typing import List, Dict, Any
 from datetime import datetime, timezone
-import hashlib
 import re
 from core.config import get_logger
-from urllib.parse import urlparse, urlunparse
+from services.image_identity import image_dedupe_key
+from services.image_mirror import mirror_items
 
 logger = get_logger(__name__)
 
@@ -20,16 +20,22 @@ _FEEDBACK_DELTAS = {
 class InspirationStore:
     def __init__(self, storage_service):
         self.supabase = storage_service.supabase
+        # Storage uploads need the service key; fall back to the anon client so
+        # a missing SUPABASE_SERVICE_KEY degrades to "no mirroring", not a crash.
+        self.storage_client = getattr(storage_service, "db_admin", None) or storage_service.supabase
 
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
 
     def _dedupe_key(self, image_url: str) -> str:
-        u = (image_url or "").strip().lower()
-        parsed = urlparse(u)
-        clean = urlunparse((parsed.scheme, parsed.netloc, parsed.path, '', '', ''))
-        return hashlib.sha1(clean.encode("utf-8")).hexdigest()
+        """
+        Stable per-photo key. Delegates to `image_identity` so Instagram's
+        rotating edge hosts (scontent-lga3-1 / scontent-ord5-2 / instagram.
+        fluk1-1.fna.fbcdn.net ...) collapse to one key instead of forking a new
+        row on every scrape.
+        """
+        return image_dedupe_key(image_url)
 
     def _is_valid_url(self, url: str) -> bool:
         if not url:
@@ -40,7 +46,18 @@ class InspirationStore:
     # Inspiration items (the board)
     # ------------------------------------------------------------------
 
-    def upsert_items(self, user_id: str, items: List[Dict[str, Any]]) -> None:
+    def upsert_items(self, user_id: str, items: List[Dict[str, Any]], mirror: bool = True) -> None:
+        """
+        Persist scraped items.
+
+        Order matters here: dedupe_key is computed from the ORIGINAL source URL
+        before mirroring, so a freshly scraped photo collapses onto the row an
+        earlier run created from a different CDN edge. Mirroring then rewrites
+        image_url to a permanent Supabase Storage URL, because the source URL
+        (Instagram especially) stops resolving within a couple of weeks.
+
+        Pass mirror=False to store source URLs as-is (tests, offline runs).
+        """
         if not items:
             return
 
@@ -74,22 +91,59 @@ class InspirationStore:
                 if row_tags > prev_tags or float(row.get("score") or 0) > float(prev.get("score") or 0):
                     deduped[k] = row
 
+        rows = list(deduped.values())
+
+        if mirror and rows:
+            stats = mirror_items(self.storage_client, user_id, rows)
+            logger.info(
+                "[InspirationStore] mirrored %s/%s images (%s unreachable)",
+                stats["mirrored"], len(rows), stats["failed"],
+            )
+            # An image we could never fetch is an image the board can never
+            # render. Drop it here instead of storing a row that shows up as a
+            # missing card later.
+            rows = [r for r in rows if not r.pop("_mirror_failed", False)]
+            for r in rows:
+                r.pop("_source_url", None)
+
+        if not rows:
+            return
+
         try:
             self.supabase.table("inspiration_items").upsert(
-                list(deduped.values()),
+                rows,
                 on_conflict="user_id,dedupe_key"
             ).execute()
         except Exception as e:
             logger.warning("[InspirationStore] upsert_items failed (FK violation in dev?): %s", e)
 
     def delete_instagram_items(self, user_id: str) -> None:
-        """Remove all Instagram items for a user so stale posts don't linger."""
+        """
+        Remove all Instagram items for a user so stale posts don't linger.
+
+        This used to filter on source_type == 'instagram', but the Instagram
+        stage writes source_type 'icon' or 'brand' (it reflects who the account
+        belongs to, not where it came from). Nothing ever matched, the purge was
+        a silent no-op, and every pipeline run stacked another copy of the same
+        posts. Match on the 'instagram' tag the writer actually sets, and on the
+        CDN host for rows written before images were mirrored.
+        """
         try:
             self.supabase.table("inspiration_items").delete().eq(
                 "user_id", user_id
-            ).eq("source_type", "instagram").execute()
+            ).contains("tags", ["instagram"]).execute()
         except Exception as e:
-            logger.warning("[InspirationStore] delete_instagram_items failed: %s", e)
+            logger.warning("[InspirationStore] delete_instagram_items (tags) failed: %s", e)
+
+        # Legacy rows: written before the tag existed, image_url still points at
+        # the Instagram CDN.
+        for host in ("cdninstagram.com", "fbcdn.net"):
+            try:
+                self.supabase.table("inspiration_items").delete().eq(
+                    "user_id", user_id
+                ).like("image_url", f"%{host}%").execute()
+            except Exception as e:
+                logger.warning("[InspirationStore] delete_instagram_items (%s) failed: %s", host, e)
 
     def fetch_top_items(self, user_id: str, limit: int = 400) -> List[dict]:
         # Use or_ to include rows where feedback IS NULL (unrated) OR not 'hide'.

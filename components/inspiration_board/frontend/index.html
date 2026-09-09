@@ -238,7 +238,11 @@
       const img = document.createElement('img');
       img.alt = item.caption || '';
       img.addEventListener('load',  () => { img.classList.add('loaded'); setHeight(); });
-      img.addEventListener('error', () => { pin.remove(); setHeight(); });
+      // A dead image URL used to remove the card and nothing else, so the
+      // header kept claiming "60 items" over a board showing 16, and a board
+      // where every image failed rendered as blank space instead of the empty
+      // state. Re-derive the count from the DOM whenever one drops out.
+      img.addEventListener('error', () => { pin.remove(); updateSub(); setHeight(); });
       img.src = item.src;
       pin.appendChild(img);
 
@@ -341,14 +345,14 @@
     // ── Board render ──────────────────────────────────────
 
     function updateSub() {
-      const count = document.getElementById('board').querySelectorAll('.pin').length;
+      const board = document.getElementById('board');
+      const empty = document.getElementById('empty');
+      const count = board.querySelectorAll('.pin').length;
       document.getElementById('sub-label').textContent = count === 0
         ? '0 items'
         : `${count} items · save what speaks to you, hide what doesn't`;
-      if (count === 0) {
-        document.getElementById('board').style.display = 'none';
-        document.getElementById('empty').style.display = 'block';
-      }
+      board.style.display = count === 0 ? 'none' : '';
+      empty.style.display = count === 0 ? 'block' : 'none';
     }
 
     function renderBoard(items) {
