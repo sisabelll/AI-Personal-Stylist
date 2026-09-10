@@ -205,16 +205,35 @@
       window.parent.postMessage({ isStreamlitMessage: true, type, ...extra }, '*');
     }
 
-    // Set iframe height once — called after render and after images settle.
+    // Set iframe height — called after render and after images settle.
     // Never driven by ResizeObserver (which fires on every hover/transition
     // and causes Streamlit to resize the iframe mid-hover, flickering images).
     let _heightRaf;
+    let _lastPostedHeight = -1;
+
+    function measureHeight() {
+      const h = document.body.scrollHeight;
+      // While this component's tab is inactive the document has no layout box,
+      // so scrollHeight reads 0. Posting 8px in that state is what collapsed
+      // the board: Streamlit latches the height, and renderBoard's early-return
+      // on an unchanged item set means nothing ever measures again. Skip the
+      // reading entirely rather than publishing a wrong one.
+      if (h <= 0) return;
+      if (h + 8 === _lastPostedHeight) return;
+      _lastPostedHeight = h + 8;
+      toSL('streamlit:setFrameHeight', { height: h + 8 });
+    }
+
     function setHeight() {
       cancelAnimationFrame(_heightRaf);
-      _heightRaf = requestAnimationFrame(() => {
-        toSL('streamlit:setFrameHeight', { height: document.body.scrollHeight + 8 });
-      });
+      _heightRaf = requestAnimationFrame(measureHeight);
     }
+
+    // Catches the height once the tab becomes active again. A ResizeObserver
+    // would do this too, but it also fires on every hover transition, which is
+    // what made the images flicker. Polling the number and only publishing real
+    // changes gives the recovery without the churn.
+    setInterval(measureHeight, 400);
 
     function sendValue(value) {
       toSL('streamlit:setComponentValue', { value, dataType: 'json' });
@@ -389,7 +408,12 @@
       // Skip rebuild if the item set hasn't changed — prevents flashing on
       // reruns triggered by save/hide events when the item list is identical.
       const key = items.map(it => it.id).join(',');
-      if (key === _lastItemKey) return;
+      if (key === _lastItemKey) {
+        // Same items, so skip the rebuild — but still re-measure. This render
+        // may be the first one to arrive while the tab is actually visible.
+        setHeight();
+        return;
+      }
       _lastItemKey = key;
       renderBoard(items);
     });

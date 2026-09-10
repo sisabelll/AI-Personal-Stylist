@@ -864,21 +864,40 @@ st_components.html("""
 <script>
 (function () {
   var KEY = 'st_active_tab';
+  function tabNodes() {
+    return Array.from(window.parent.document.querySelectorAll('[data-baseweb="tab"]'));
+  }
   function restoreTab() {
     var saved = parseInt(localStorage.getItem(KEY) || '0', 10);
     if (saved === 0) return;
-    var tabs = window.parent.document.querySelectorAll('[data-baseweb="tab"]');
-    if (tabs[saved]) tabs[saved].click();
+    var tabs = tabNodes();
+    if (!tabs[saved]) return;
+    // Only click when we are not already on that tab. This script re-runs on
+    // every Streamlit rerun, and clicking the tab that is already active still
+    // remounts the tab panel — which remounts the inspiration board's iframe as
+    // a NEW component instance. Any save/hide message the old iframe had just
+    // posted is then dropped with "Received component message for unregistered
+    // ComponentInstance", so the heart fills but nothing reaches the database.
+    var current = tabs.findIndex(function (t) {
+      return t.getAttribute('aria-selected') === 'true';
+    });
+    if (current === saved) return;
+    tabs[saved].click();
   }
   function watchTabs() {
     var list = window.parent.document.querySelector('[data-baseweb="tab-list"]');
     if (!list) { setTimeout(watchTabs, 150); return; }
-    list.addEventListener('click', function (e) {
-      var tab = e.target.closest('[data-baseweb="tab"]');
-      if (!tab) return;
-      var idx = Array.from(list.querySelectorAll('[data-baseweb="tab"]')).indexOf(tab);
-      localStorage.setItem(KEY, String(idx));
-    });
+    // The parent element outlives this iframe, so without a guard every rerun
+    // stacks another click listener on the same node.
+    if (!list.dataset.tabPersistBound) {
+      list.dataset.tabPersistBound = '1';
+      list.addEventListener('click', function (e) {
+        var tab = e.target.closest('[data-baseweb="tab"]');
+        if (!tab) return;
+        var idx = Array.from(list.querySelectorAll('[data-baseweb="tab"]')).indexOf(tab);
+        localStorage.setItem(KEY, String(idx));
+      });
+    }
     restoreTab();
   }
   setTimeout(watchTabs, 120);
