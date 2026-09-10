@@ -681,8 +681,19 @@ if __name__ == "__main__":
     parser.add_argument("--list-due", action="store_true", help="Print due user IDs as JSON and exit (used by scheduler job)")
     args = parser.parse_args()
 
+    import sys
+
     from dotenv import load_dotenv; load_dotenv()
     storage = StorageService()
+
+    # Fail fast and legibly when the database is unreachable. Every scheduled
+    # failure between 2026-07-27 and 2026-08-24 was this, reported as a 40-line
+    # httpcore traceback that never named Supabase.
+    try:
+        storage.check_connection()
+    except ConnectionError as e:
+        print(f"❌ {e}")
+        sys.exit(1)
 
     if args.list_due:
         import json, os
@@ -696,9 +707,11 @@ if __name__ == "__main__":
     elif args.user_id:
         profile = _load_profile(storage, args.user_id)
         if not profile:
+            # Exit non-zero: this used to print and return 0, so a matrix job
+            # for a deleted user reported success having done nothing.
             print(f"❌ Profile not found for user {args.user_id}")
-        else:
-            run(user_id=args.user_id, user_profile=profile)
+            sys.exit(1)
+        run(user_id=args.user_id, user_profile=profile)
     else:
         # No args — run all due users sequentially (local dev / simple deploys)
         due = _get_due_user_ids(storage)
