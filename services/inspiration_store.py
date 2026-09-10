@@ -159,8 +159,21 @@ class InspirationStore:
         )
         return resp.data or []
 
+    def hide_item(self, user_id: str, item_id: str) -> None:
+        """
+        Bury an item the user dismissed, keeping the rejection on record.
+
+        This used to DELETE the row. The board looked right either way —
+        fetch_top_items already filters feedback='hide' out — but the deletion
+        also destroyed the only evidence that the user rejected anything, so
+        fetch_feedback_signals could never accumulate the 2 hides it needs to
+        demote a source. Marking instead of deleting is what makes "show me
+        less of this" possible.
+        """
+        self.log_feedback(user_id, item_id, "hide")
+
     def delete_item(self, user_id: str, item_id: str) -> None:
-        """Permanently remove an item the user has hidden."""
+        """Permanently remove a row. Used by maintenance scripts, not the board."""
         try:
             self.supabase.table("inspiration_items").delete().eq(
                 "id", item_id
@@ -223,11 +236,33 @@ class InspirationStore:
         except Exception as e:
             logger.warning("[InspirationStore] log_feedback failed: %s", e)
 
+    # The board's heart button records "save". "like" only ever came from
+    # log_feedback, which nothing called — so matching on "like" alone meant
+    # promoted was empty for every user no matter how much they hearted.
+    _POSITIVE_FEEDBACK = ("save", "like")
+
+    def count_feedback(self, user_id: str, source_name: str, actions=None) -> int:
+        """How many items from one source carry the given feedback."""
+        actions = list(actions or self._POSITIVE_FEEDBACK)
+        try:
+            resp = (
+                self.supabase.table("inspiration_items")
+                .select("id")
+                .eq("user_id", user_id)
+                .eq("source_name", source_name)
+                .in_("feedback", actions)
+                .execute()
+            )
+            return len(resp.data or [])
+        except Exception as e:
+            logger.warning("[InspirationStore] count_feedback failed: %s", e)
+            return 0
+
     def fetch_feedback_signals(self, user_id: str) -> Dict[str, Any]:
         """
-        Read like/hide counts per source_name from inspiration_items.
+        Read positive/hide counts per source_name from inspiration_items.
         Returns:
-          promoted: sources liked ≥2 times (user resonates with this lane)
+          promoted: sources saved or liked ≥2 times (user resonates with this lane)
           demoted:  sources hidden ≥2 times (user wants less of this)
         """
         from collections import Counter
@@ -236,7 +271,7 @@ class InspirationStore:
                 self.supabase.table("inspiration_items")
                 .select("source_name")
                 .eq("user_id", user_id)
-                .eq("feedback", "like")
+                .in_("feedback", list(self._POSITIVE_FEEDBACK))
                 .execute()
             ).data or []
             hidden = (

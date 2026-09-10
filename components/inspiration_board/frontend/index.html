@@ -237,6 +237,15 @@
 
     function sendValue(value) {
       toSL('streamlit:setComponentValue', { value, dataType: 'json' });
+      // A click landing before Streamlit has finished registering this instance
+      // is dropped with "Received component message for unregistered
+      // ComponentInstance" — the heart fills, the pin vanishes, and nothing
+      // reaches the database. Send it a second time once registration has had a
+      // moment. app.py ignores an event identical to the one it just handled,
+      // so the duplicate costs nothing when the first attempt did land.
+      setTimeout(function () {
+        toSL('streamlit:setComponentValue', { value, dataType: 'json' });
+      }, 600);
     }
 
     toSL('streamlit:componentReady', { apiVersion: 1 });

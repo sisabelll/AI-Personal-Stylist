@@ -1183,12 +1183,13 @@ with tab_inspo:
                             saved_item = it
                             break
                     st.toast("Saved to your style DNA ✦")
-                    # Track save counts per source — trigger mini-expansion at 3
-                    save_counts = st.session_state.setdefault("_inspo_save_counts", {})
+                    # Trigger mini-expansion at the 3rd save from one source.
+                    # Counted from the database, not session state: a session
+                    # counter reset on every page reload, so this only ever
+                    # fired if all three saves happened in one sitting.
                     if saved_item:
                         src = saved_item.get("source_name") or ""
-                        save_counts[src] = save_counts.get(src, 0) + 1
-                        if save_counts[src] == 3:
+                        if src and inspo_store.count_feedback(user_id, src) == 3:
                             # Fire mini-expansion in background thread
                             import threading
                             from agents.inspiration_agent import mini_expand
@@ -1206,11 +1207,19 @@ with tab_inspo:
                             ).start()
                             st.toast(f"Finding more from {src}… ✦")
                 elif action == "hide" and item_id:
-                    # Delete permanently — item will never resurface
-                    inspo_store.delete_item(user_id, item_id)
+                    # Record the rejection rather than deleting the row —
+                    # fetch_top_items filters hidden items out, and keeping them
+                    # is what lets a repeatedly-hidden source get demoted.
+                    inspo_store.hide_item(user_id, item_id)
                     # Remove from session cache so it doesn't reappear on rerun
                     st.session_state["_inspo_items"] = [
                         it for it in st.session_state.get("_inspo_items", [])
                         if it.get("id") != item_id
                     ]
+                    # Push the shortened list to the component now. The board had
+                    # already rendered this run with the item still in it, and
+                    # switching tabs is client-side so it triggers no rerun of its
+                    # own — without this the dismissed pin reappears and sits there
+                    # until some unrelated interaction happens to redraw the board.
+                    st.rerun()
 

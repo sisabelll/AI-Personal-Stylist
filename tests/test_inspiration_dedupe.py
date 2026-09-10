@@ -86,6 +86,12 @@ class FakeQuery:
     def like(self, col, val):
         self._filters.append(("like", col, val)); return self
 
+    def in_(self, col, vals):
+        self._filters.append(("in", col, list(vals))); return self
+
+    def maybe_single(self):
+        self._single = True; return self
+
     def execute(self):
         matched = [r for r in self._table.rows if self._matches(r)]
         for r in matched:
@@ -101,6 +107,8 @@ class FakeQuery:
             if kind == "contains" and not set(val).issubset(set(actual or [])):
                 return False
             if kind == "like" and val.strip("%") not in (actual or ""):
+                return False
+            if kind == "in" and actual not in val:
                 return False
         return True
 
@@ -129,6 +137,42 @@ class FakeTable:
 
     def delete(self):
         return FakeQuery(self)
+
+    def select(self, *cols):
+        return FakeSelect(self)
+
+    def update(self, payload):
+        return FakeUpdate(self, payload)
+
+
+class FakeSelect(FakeQuery):
+    def __init__(self, table):
+        super().__init__(table)
+        self._single = False
+
+    def order(self, col, desc=False):
+        return self
+
+    def limit(self, n):
+        return self
+
+    def execute(self):
+        rows = [r for r in self._table.rows if self._matches(r)]
+        if getattr(self, "_single", False):
+            return type("Resp", (), {"data": rows[0] if rows else None})()
+        return type("Resp", (), {"data": rows})()
+
+
+class FakeUpdate(FakeQuery):
+    def __init__(self, table, payload):
+        super().__init__(table)
+        self._payload = payload
+
+    def execute(self):
+        matched = [r for r in self._table.rows if self._matches(r)]
+        for r in matched:
+            r.update(self._payload)
+        return type("Resp", (), {"data": matched})()
 
 
 class FakeSupabase:
@@ -238,3 +282,139 @@ class TestInstagramPurge:
         store.delete_instagram_items("user-1")
         rows = store.supabase.table("inspiration_items").rows
         assert len(rows) == 1 and rows[0]["user_id"] == "user-2"
+
+
+# --------------------------------------------------------------------------
+# Feedback tracking: what the board records when you heart or dismiss a pin
+# --------------------------------------------------------------------------
+
+def _seed(store, user, source, n, start=0):
+    """Insert n distinct photos from one source and return their ids."""
+    rows = []
+    for i in range(start, start + n):
+        url = f"https://cdn.example.com/{source.replace(' ', '')}/{i}.jpg"
+        rows.append({
+            "source_type": "icon", "source_name": source, "image_url": url,
+            "page_url": "https://example.com", "caption": "", "tags": [], "score": 0.7,
+        })
+    store.upsert_items(user, rows, mirror=False)
+    table = store.supabase.table("inspiration_items")
+    for idx, r in enumerate(table.rows):
+        r.setdefault("id", f"row-{idx}")
+    return [r["id"] for r in table.rows if r["source_name"] == source]
+
+
+class TestFeedbackSignals:
+    def test_hearting_a_source_twice_promotes_it(self, store):
+        """
+        The heart writes feedback='save'. fetch_feedback_signals used to count
+        only 'like', which nothing ever wrote, so promoted was always empty.
+        """
+        ids = _seed(store, "user-1", "Bella Hadid", 2)
+        for i in ids:
+            store.save_item("user-1", i)
+
+        signals = store.fetch_feedback_signals("user-1")
+        assert signals["promoted"] == ["Bella Hadid"], signals
+
+    def test_one_save_is_not_enough_to_promote(self, store):
+        ids = _seed(store, "user-1", "Bella Hadid", 2)
+        store.save_item("user-1", ids[0])
+        assert store.fetch_feedback_signals("user-1")["promoted"] == []
+
+    def test_legacy_like_rows_still_count(self, store):
+        ids = _seed(store, "user-1", "The Row", 2)
+        for i in ids:
+            store.log_feedback("user-1", i, "like")
+        assert store.fetch_feedback_signals("user-1")["promoted"] == ["The Row"]
+
+    def test_hiding_a_source_twice_demotes_it(self, store):
+        """Hiding used to DELETE the row, so hides could never accumulate."""
+        ids = _seed(store, "user-1", "Adwoa Aboah", 2)
+        for i in ids:
+            store.hide_item("user-1", i)
+
+        assert store.fetch_feedback_signals("user-1")["demoted"] == ["Adwoa Aboah"]
+
+    def test_hidden_rows_survive_as_records(self, store):
+        ids = _seed(store, "user-1", "Adwoa Aboah", 2)
+        store.hide_item("user-1", ids[0])
+        rows = store.supabase.table("inspiration_items").rows
+        hidden = [r for r in rows if r.get("feedback") == "hide"]
+        assert len(hidden) == 1, "hide must leave the row behind, not delete it"
+        assert hidden[0]["score"] < 0.7, "hidden items should be buried by score"
+
+    def test_delete_item_still_really_deletes(self, store):
+        """Maintenance scripts still need a hard delete."""
+        ids = _seed(store, "user-1", "The Row", 1)
+        store.delete_item("user-1", ids[0])
+        assert store.supabase.table("inspiration_items").rows == []
+
+
+class TestSaveCounting:
+    def test_count_feedback_counts_saves_per_source(self, store):
+        a = _seed(store, "user-1", "Bella Hadid", 3)
+        b = _seed(store, "user-1", "The Row", 2)
+        for i in a:
+            store.save_item("user-1", i)
+        store.save_item("user-1", b[0])
+
+        assert store.count_feedback("user-1", "Bella Hadid") == 3
+        assert store.count_feedback("user-1", "The Row") == 1
+
+    def test_count_survives_a_new_session(self, store):
+        """
+        The mini-expand trigger used a st.session_state counter that reset on
+        every page reload, so three saves spread across sittings never fired it.
+        Counting from the table has no such memory.
+        """
+        ids = _seed(store, "user-1", "Bella Hadid", 3)
+        for i in ids:
+            store.save_item("user-1", i)
+
+        fresh = InspirationStore(FakeStorageService())
+        fresh.supabase = store.supabase          # same table, brand new process
+        assert fresh.count_feedback("user-1", "Bella Hadid") == 3
+
+    def test_hides_do_not_count_toward_the_save_trigger(self, store):
+        ids = _seed(store, "user-1", "Bella Hadid", 3)
+        store.save_item("user-1", ids[0])
+        store.hide_item("user-1", ids[1])
+        assert store.count_feedback("user-1", "Bella Hadid") == 1
+
+
+class TestDuplicateDeliveryIsHarmless:
+    """
+    The board sends each click twice (once immediately, once 600ms later) so a
+    click landing before Streamlit finishes registering the component isn't
+    silently lost. app.py drops the second when it matches the event it just
+    handled, but the store must survive it landing anyway.
+    """
+
+    def test_saving_twice_does_not_double_the_score(self, store):
+        ids = _seed(store, "user-1", "Bella Hadid", 1)
+        store.save_item("user-1", ids[0])
+        once = [r for r in store.supabase.table("inspiration_items").rows][0]["score"]
+        store.save_item("user-1", ids[0])
+        twice = [r for r in store.supabase.table("inspiration_items").rows][0]["score"]
+
+        assert once == 1.0, once           # 0.7 + 0.3, capped
+        assert twice == 1.0, twice         # capped, not 1.3
+
+    def test_hiding_twice_stays_hidden(self, store):
+        ids = _seed(store, "user-1", "Adwoa Aboah", 1)
+        store.hide_item("user-1", ids[0])
+        store.hide_item("user-1", ids[0])
+        row = store.supabase.table("inspiration_items").rows[0]
+
+        assert row["feedback"] == "hide"
+        assert row["score"] >= -1.0, "score must stay clamped"
+
+    def test_double_delivery_does_not_inflate_the_save_count(self, store):
+        ids = _seed(store, "user-1", "Bella Hadid", 2)
+        store.save_item("user-1", ids[0])
+        store.save_item("user-1", ids[0])   # duplicate delivery
+        store.save_item("user-1", ids[1])
+
+        # Two distinct photos saved, not three events counted
+        assert store.count_feedback("user-1", "Bella Hadid") == 2
