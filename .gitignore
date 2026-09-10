@@ -2,6 +2,8 @@
 __pycache__/
 *.pyc
 .venv/
+# old interpreters kept around for rollback
+.venv-*/
 .streamlit/secrets.toml
 
 # Runtime state (contains personal data or session-specific content)
