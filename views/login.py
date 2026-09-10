@@ -1,5 +1,7 @@
+import json
 import os
 import streamlit as st
+import streamlit.components.v1 as st_components
 import time
 from urllib.parse import quote
 
@@ -110,7 +112,14 @@ def render_login(supabase, on_login=None):
             f"?provider=google"
             f"&redirect_to={quote(callback_url, safe='')}"
         )
-        st.markdown(
-            f'<meta http-equiv="refresh" content="0;url={oauth_url}">',
-            unsafe_allow_html=True,
+        st_components.html(
+            "<script>"
+            "(function() {"
+            f"  var url = {json.dumps(oauth_url)};"
+            "  var s = window.parent.document.createElement('script');"
+            "  s.textContent = 'window.location.replace(' + JSON.stringify(url) + ');';"
+            "  window.parent.document.head.appendChild(s);"
+            "})();"
+            "</script>",
+            height=0,
         )
