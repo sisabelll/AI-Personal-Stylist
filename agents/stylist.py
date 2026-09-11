@@ -116,7 +116,7 @@ class StyleStylist:
         if hasattr(feedback, "model_dump"):
             feedback = feedback.model_dump()
 
-        swap_requests_raw = self._get_swap_requests_raw(feedback)
+        swap_requests_raw = self._get_swap_requests_expanded(feedback)
         items_to_remove = situational_signals.get("items_to_remove") or []
         attribute_corrections = situational_signals.get("attribute_corrections", []) or []
         owned_anchors = situational_signals.get("owned_anchors") or []
@@ -411,12 +411,20 @@ RULE: Every silhouette and fabric choice must reflect {body_type} principles. It
 
         return items
 
-    def _get_swap_requests_raw(self, feedback: dict) -> List[str]:
+    def _get_swap_requests_expanded(self, feedback: dict) -> List[str]:
+        """
+        The EXPANDED unlock set, not the raw request.
+
+        The LLM prompt has to show every unlocked category, so a OnePiece swap
+        reports ["Bottom", "OnePiece", "Top"] — otherwise the "Top is locked"
+        edit rule contradicts the physics that a dress replaces top and bottom.
+
+        This was called _get_swap_requests_raw, which said the opposite of what
+        it does and left a test asserting the raw list red for long enough that
+        everyone learned to ignore it.
+        """
         if not feedback:
             return []
-        # Use the expanded swap_out so the LLM prompt shows all unlocked categories
-        # (e.g. OnePiece swap → show ["Bottom", "OnePiece", "Top"] so there's no
-        # contradiction between the "Top is locked" edit rule and physics).
         return feedback.get("swap_out") or []
 
     def _stabilize_outfit(
