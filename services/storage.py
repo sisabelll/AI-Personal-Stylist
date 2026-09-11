@@ -21,6 +21,65 @@ class StorageService:
             self.db_admin = None
             print("⚠️ Warning: No Service Key found. Database writes might fail.")
 
+    def check_connection(self, attempts: int = 5, delay: float = 4.0) -> None:
+        """
+        Probe Supabase before doing real work. Raises ConnectionError with a
+        message a human can act on.
+
+        Scheduled runs die on the first query when the project is unreachable,
+        and the traceback that reaches the Actions log is 40 lines of httpx and
+        httpcore frames ending in "[Errno -2] Name or service not known". True,
+        but it buries the one fact that matters and reads identically whether
+        the project is paused or the runner had a bad second of DNS.
+
+        Retries cover the transient case. A name-resolution failure that
+        survives every attempt means the hostname itself is gone, which on the
+        free tier means the project is paused and needs a manual restore — no
+        amount of retrying wakes it.
+        """
+        import time
+
+        last_error = None
+        for attempt in range(1, attempts + 1):
+            try:
+                self.supabase.table("profiles").select("id").limit(1).execute()
+                return
+            except Exception as e:
+                last_error = e
+                if attempt < attempts:
+                    print(f"⏳ Supabase unreachable (attempt {attempt}/{attempts}), "
+                          f"retrying in {delay:.0f}s…", flush=True)
+                    time.sleep(delay)
+
+        detail = f"{type(last_error).__name__}: {last_error}"
+        if self._looks_like_dns_failure(last_error):
+            host = (os.environ.get("SUPABASE_URL") or "the Supabase URL").strip('"')
+            raise ConnectionError(
+                f"Supabase host does not resolve after {attempts} attempts ({host}). "
+                "On the free tier a project that has been idle is paused and its "
+                "hostname stops resolving; restore it from the Supabase dashboard. "
+                f"Underlying error: {detail}"
+            )
+        raise ConnectionError(
+            f"Supabase unreachable after {attempts} attempts. Underlying error: {detail}"
+        )
+
+    @staticmethod
+    def _looks_like_dns_failure(error) -> bool:
+        """True when the error chain is a name-resolution failure."""
+        seen = set()
+        while error is not None and id(error) not in seen:
+            seen.add(id(error))
+            text = str(error).lower()
+            if ("name or service not known" in text
+                    or "nodename nor servname" in text
+                    or "temporary failure in name resolution" in text
+                    or "getaddrinfo" in text
+                    or "name_not_resolved" in text):
+                return True
+            error = error.__cause__ or error.__context__
+        return False
+
     # ==========================================
     # 👤 USER PROFILES (Replaces user_profile.json)
     # ==========================================

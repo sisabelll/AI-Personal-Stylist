@@ -1,10 +1,10 @@
 from __future__ import annotations
 from typing import List, Dict, Any
 from datetime import datetime, timezone
-import hashlib
 import re
 from core.config import get_logger
-from urllib.parse import urlparse, urlunparse
+from services.image_identity import image_dedupe_key
+from services.image_mirror import mirror_items
 
 logger = get_logger(__name__)
 
@@ -20,16 +20,22 @@ _FEEDBACK_DELTAS = {
 class InspirationStore:
     def __init__(self, storage_service):
         self.supabase = storage_service.supabase
+        # Storage uploads need the service key; fall back to the anon client so
+        # a missing SUPABASE_SERVICE_KEY degrades to "no mirroring", not a crash.
+        self.storage_client = getattr(storage_service, "db_admin", None) or storage_service.supabase
 
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
 
     def _dedupe_key(self, image_url: str) -> str:
-        u = (image_url or "").strip().lower()
-        parsed = urlparse(u)
-        clean = urlunparse((parsed.scheme, parsed.netloc, parsed.path, '', '', ''))
-        return hashlib.sha1(clean.encode("utf-8")).hexdigest()
+        """
+        Stable per-photo key. Delegates to `image_identity` so Instagram's
+        rotating edge hosts (scontent-lga3-1 / scontent-ord5-2 / instagram.
+        fluk1-1.fna.fbcdn.net ...) collapse to one key instead of forking a new
+        row on every scrape.
+        """
+        return image_dedupe_key(image_url)
 
     def _is_valid_url(self, url: str) -> bool:
         if not url:
@@ -40,7 +46,18 @@ class InspirationStore:
     # Inspiration items (the board)
     # ------------------------------------------------------------------
 
-    def upsert_items(self, user_id: str, items: List[Dict[str, Any]]) -> None:
+    def upsert_items(self, user_id: str, items: List[Dict[str, Any]], mirror: bool = True) -> None:
+        """
+        Persist scraped items.
+
+        Order matters here: dedupe_key is computed from the ORIGINAL source URL
+        before mirroring, so a freshly scraped photo collapses onto the row an
+        earlier run created from a different CDN edge. Mirroring then rewrites
+        image_url to a permanent Supabase Storage URL, because the source URL
+        (Instagram especially) stops resolving within a couple of weeks.
+
+        Pass mirror=False to store source URLs as-is (tests, offline runs).
+        """
         if not items:
             return
 
@@ -74,22 +91,65 @@ class InspirationStore:
                 if row_tags > prev_tags or float(row.get("score") or 0) > float(prev.get("score") or 0):
                     deduped[k] = row
 
+        rows = list(deduped.values())
+
+        if mirror and rows:
+            stats = mirror_items(self.storage_client, user_id, rows)
+            if stats.get("storage_available", True):
+                logger.info(
+                    "[InspirationStore] mirrored %s/%s images (%s unreachable)",
+                    stats["mirrored"], len(rows), stats["failed"],
+                )
+                # An image we could never fetch is an image the board can never
+                # render. Drop it here instead of storing a row that shows up as
+                # a missing card later.
+                rows = [r for r in rows if not r.pop("_mirror_failed", False)]
+            else:
+                # Storage is down or misconfigured, not the images. Dropping
+                # here would write an empty board on every refresh.
+                for r in rows:
+                    r.pop("_mirror_failed", None)
+            for r in rows:
+                r.pop("_source_url", None)
+
+        if not rows:
+            return
+
         try:
             self.supabase.table("inspiration_items").upsert(
-                list(deduped.values()),
+                rows,
                 on_conflict="user_id,dedupe_key"
             ).execute()
         except Exception as e:
             logger.warning("[InspirationStore] upsert_items failed (FK violation in dev?): %s", e)
 
     def delete_instagram_items(self, user_id: str) -> None:
-        """Remove all Instagram items for a user so stale posts don't linger."""
+        """
+        Remove all Instagram items for a user so stale posts don't linger.
+
+        This used to filter on source_type == 'instagram', but the Instagram
+        stage writes source_type 'icon' or 'brand' (it reflects who the account
+        belongs to, not where it came from). Nothing ever matched, the purge was
+        a silent no-op, and every pipeline run stacked another copy of the same
+        posts. Match on the 'instagram' tag the writer actually sets, and on the
+        CDN host for rows written before images were mirrored.
+        """
         try:
             self.supabase.table("inspiration_items").delete().eq(
                 "user_id", user_id
-            ).eq("source_type", "instagram").execute()
+            ).contains("tags", ["instagram"]).execute()
         except Exception as e:
-            logger.warning("[InspirationStore] delete_instagram_items failed: %s", e)
+            logger.warning("[InspirationStore] delete_instagram_items (tags) failed: %s", e)
+
+        # Legacy rows: written before the tag existed, image_url still points at
+        # the Instagram CDN.
+        for host in ("cdninstagram.com", "fbcdn.net"):
+            try:
+                self.supabase.table("inspiration_items").delete().eq(
+                    "user_id", user_id
+                ).like("image_url", f"%{host}%").execute()
+            except Exception as e:
+                logger.warning("[InspirationStore] delete_instagram_items (%s) failed: %s", host, e)
 
     def fetch_top_items(self, user_id: str, limit: int = 400) -> List[dict]:
         # Use or_ to include rows where feedback IS NULL (unrated) OR not 'hide'.
@@ -105,8 +165,21 @@ class InspirationStore:
         )
         return resp.data or []
 
+    def hide_item(self, user_id: str, item_id: str) -> None:
+        """
+        Bury an item the user dismissed, keeping the rejection on record.
+
+        This used to DELETE the row. The board looked right either way —
+        fetch_top_items already filters feedback='hide' out — but the deletion
+        also destroyed the only evidence that the user rejected anything, so
+        fetch_feedback_signals could never accumulate the 2 hides it needs to
+        demote a source. Marking instead of deleting is what makes "show me
+        less of this" possible.
+        """
+        self.log_feedback(user_id, item_id, "hide")
+
     def delete_item(self, user_id: str, item_id: str) -> None:
-        """Permanently remove an item the user has hidden."""
+        """Permanently remove a row. Used by maintenance scripts, not the board."""
         try:
             self.supabase.table("inspiration_items").delete().eq(
                 "id", item_id
@@ -169,11 +242,33 @@ class InspirationStore:
         except Exception as e:
             logger.warning("[InspirationStore] log_feedback failed: %s", e)
 
+    # The board's heart button records "save". "like" only ever came from
+    # log_feedback, which nothing called — so matching on "like" alone meant
+    # promoted was empty for every user no matter how much they hearted.
+    _POSITIVE_FEEDBACK = ("save", "like")
+
+    def count_feedback(self, user_id: str, source_name: str, actions=None) -> int:
+        """How many items from one source carry the given feedback."""
+        actions = list(actions or self._POSITIVE_FEEDBACK)
+        try:
+            resp = (
+                self.supabase.table("inspiration_items")
+                .select("id")
+                .eq("user_id", user_id)
+                .eq("source_name", source_name)
+                .in_("feedback", actions)
+                .execute()
+            )
+            return len(resp.data or [])
+        except Exception as e:
+            logger.warning("[InspirationStore] count_feedback failed: %s", e)
+            return 0
+
     def fetch_feedback_signals(self, user_id: str) -> Dict[str, Any]:
         """
-        Read like/hide counts per source_name from inspiration_items.
+        Read positive/hide counts per source_name from inspiration_items.
         Returns:
-          promoted: sources liked ≥2 times (user resonates with this lane)
+          promoted: sources saved or liked ≥2 times (user resonates with this lane)
           demoted:  sources hidden ≥2 times (user wants less of this)
         """
         from collections import Counter
@@ -182,7 +277,7 @@ class InspirationStore:
                 self.supabase.table("inspiration_items")
                 .select("source_name")
                 .eq("user_id", user_id)
-                .eq("feedback", "like")
+                .in_("feedback", list(self._POSITIVE_FEEDBACK))
                 .execute()
             ).data or []
             hidden = (

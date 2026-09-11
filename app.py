@@ -1,10 +1,9 @@
 import json
 import os
 import streamlit as st
-import requests
 import traceback
 from datetime import datetime
-from urllib.parse import quote, unquote, urlsplit, urlunsplit
+from urllib.parse import quote, unquote
 from urllib.request import urlopen
 from dotenv import load_dotenv
 
@@ -13,6 +12,8 @@ from services.storage import StorageService
 from services.catalog import CatalogClient
 from services.client import OpenAIClient
 from services.inspiration_store import InspirationStore
+from services.image_identity import image_identity
+from services.image_mirror import download_image
 from workflow.manager import ConversationManager
 
 # --- VIEWS ---
@@ -401,6 +402,15 @@ if "user" not in st.session_state and not DEV_MODE:
 # If Supabase returns tokens in the URL hash (implicit flow), this JS snippet
 # reads them and re-navigates to the same URL with tokens as query params so
 # Streamlit's Python side can see them.
+#
+# This runs automatically on page load (not from a click), and browsers block
+# a sandboxed iframe from navigating the top-level page unless that navigation
+# happens inside a live user gesture — which an auto-run script never has. The
+# read (window.parent.location.hash) succeeds silently; the navigation
+# (window.parent.location.replace(...)) is silently dropped. Fix: build the
+# navigation as a <script> element and inject it into the PARENT document —
+# once it's the parent's own script running, it's the page navigating itself,
+# which is never restricted.
 st_components.html("""
 <script>
 (function() {
@@ -415,7 +425,9 @@ st_components.html("""
         url.hash = '';
         url.searchParams.set('access_token', at);
         url.searchParams.set('refresh_token', rt);
-        win.location.replace(url.toString());
+        const s = win.document.createElement('script');
+        s.textContent = 'window.location.replace(' + JSON.stringify(url.toString()) + ');';
+        win.document.head.appendChild(s);
     }
 })();
 </script>
@@ -601,8 +613,17 @@ def _render_rating_widget(outfit_id: str, db_id: str):
             st.toast(f"Rated {_star_str(r_val)}")
         st.rerun()
 
-def display_outfit_recommendation(response_data):
-    """Renders the visual moodboard."""
+def display_outfit_recommendation(response_data, visuals_map=None):
+    """Renders the visual moodboard.
+
+    `visuals_map` lets a caller pass in an already-resolved image lookup for this
+    outfit (see `st.session_state.messages[i]["visuals"]`). When omitted we resolve
+    it here — this is the path taken the first time an outfit is generated. Chat
+    history replay on every rerun should always pass the cached map: re-resolving
+    images for every past outfit on every single rerun (any button click, any tab
+    switch) doesn't scale — the cost grows with the length of the conversation even
+    though the disk cache makes it "free" of network calls.
+    """
     # 1. The Reasoning (NEW)
     with st.container():
         st.subheader("💡 The Edit")
@@ -635,7 +656,8 @@ def display_outfit_recommendation(response_data):
 
     # We take the first option for now (simplify for MVP)
     outfit_items = outfit_options[0]['items']
-    visuals_map = st.session_state.catalog.search_products_parallel(outfit_items)
+    if visuals_map is None:
+        visuals_map = st.session_state.catalog.search_products_parallel(outfit_items)
 
     st.divider()
     cols = st.columns(len(outfit_items))
@@ -693,37 +715,24 @@ def fetch_image_bytes(url: str) -> bytes:
     """
     Fetch image bytes. Returns None if broken / not an image / blocked.
     Cached so reruns don't refetch.
+
+    Shares one implementation with the ingest-time mirror so the browser-shaped
+    headers and timeout stay in a single place — several fashion CDNs stall on
+    a bare User-Agent rather than rejecting it outright.
     """
-    if not url.startswith(("http://", "https://")):
-        return None
-    try:
-        r = requests.get(
-            url,
-            timeout=6,
-            headers={"User-Agent": "Mozilla/5.0"},
-            allow_redirects=True,
-        )
-        if r.status_code != 200:
-            return None
-
-        ctype = (r.headers.get("Content-Type") or "").lower()
-        if "image" not in ctype:
-            return None
-
-        if not r.content or len(r.content) < 5000:  # tiny responses are often error placeholders
-            return None
-
-        return r.content
-    except Exception:
-        return None
+    downloaded = download_image(url)
+    return downloaded[0] if downloaded else None
 
 def normalize_image_url(url: str) -> str:
-    """Reduce near-duplicate URLs by stripping query + fragment."""
-    u = (url or "").strip()
-    if not u:
-        return u
-    parts = urlsplit(u)
-    return urlunsplit((parts.scheme, parts.netloc, parts.path, "", ""))
+    """
+    Reduce a URL to a stable per-photo key for board-side deduplication.
+
+    Delegates to `image_identity` so this agrees with the key the store writes.
+    Stripping query+host matters for Instagram: the same photo arrives from a
+    different CDN edge on every scrape, so a host-sensitive key let ten copies
+    of one photo through onto the board.
+    """
+    return image_identity(url)
 
 def _needs_proxy(url: str) -> bool:
     """Instagram CDN URLs are referrer-locked and won't load in an iframe — proxy them."""
@@ -755,24 +764,31 @@ def _diversity_rank(items: list, window: int = 30) -> list:
 
 def _build_inspo_items(user_id: str, inspo_store) -> list:
     """
-    Fetch, diversity-rank, and deduplicate inspiration items.
-    Instagram CDN URLs are proxied server-side (fetched as bytes, sent as base64).
-    All other URLs are passed directly to the browser.
+    Fetch, deduplicate, diversity-rank, and serve the top inspiration items.
+
+    Images ingested since image mirroring landed already carry a permanent
+    Supabase Storage URL and go straight to the browser. The Instagram proxy
+    below is the fallback for rows written before that, whose signed CDN URLs
+    the browser cannot load.
     """
     from concurrent.futures import ThreadPoolExecutor
 
-    # Fetch a large pool, diversity-rank, then serve the top 60
+    # Fetch a large pool, drop duplicate photos, diversity-rank, serve the top 60.
+    # Dedupe has to run BEFORE the cut: slicing first spends the 60 slots on
+    # copies of the same photo and then removes them, leaving a board that is
+    # both repetitive at the top and short overall.
     raw = inspo_store.fetch_top_items(user_id=user_id, limit=400) or []
-    raw = _diversity_rank(raw)[:60]
 
     seen_urls: set = set()
-    deduped = []
+    unique = []
     for it in raw:
         url = normalize_image_url(it.get("image_url") or "")
         if not url or url in seen_urls:
             continue
         seen_urls.add(url)
-        deduped.append(it)
+        unique.append(it)
+
+    deduped = _diversity_rank(unique)[:60]
 
     # Proxy Instagram URLs in parallel; leave others as-is
     proxy_items = [(i, it) for i, it in enumerate(deduped) if _needs_proxy(it.get("image_url", ""))]
@@ -848,21 +864,40 @@ st_components.html("""
 <script>
 (function () {
   var KEY = 'st_active_tab';
+  function tabNodes() {
+    return Array.from(window.parent.document.querySelectorAll('[data-baseweb="tab"]'));
+  }
   function restoreTab() {
     var saved = parseInt(localStorage.getItem(KEY) || '0', 10);
     if (saved === 0) return;
-    var tabs = window.parent.document.querySelectorAll('[data-baseweb="tab"]');
-    if (tabs[saved]) tabs[saved].click();
+    var tabs = tabNodes();
+    if (!tabs[saved]) return;
+    // Only click when we are not already on that tab. This script re-runs on
+    // every Streamlit rerun, and clicking the tab that is already active still
+    // remounts the tab panel — which remounts the inspiration board's iframe as
+    // a NEW component instance. Any save/hide message the old iframe had just
+    // posted is then dropped with "Received component message for unregistered
+    // ComponentInstance", so the heart fills but nothing reaches the database.
+    var current = tabs.findIndex(function (t) {
+      return t.getAttribute('aria-selected') === 'true';
+    });
+    if (current === saved) return;
+    tabs[saved].click();
   }
   function watchTabs() {
     var list = window.parent.document.querySelector('[data-baseweb="tab-list"]');
     if (!list) { setTimeout(watchTabs, 150); return; }
-    list.addEventListener('click', function (e) {
-      var tab = e.target.closest('[data-baseweb="tab"]');
-      if (!tab) return;
-      var idx = Array.from(list.querySelectorAll('[data-baseweb="tab"]')).indexOf(tab);
-      localStorage.setItem(KEY, String(idx));
-    });
+    // The parent element outlives this iframe, so without a guard every rerun
+    // stacks another click listener on the same node.
+    if (!list.dataset.tabPersistBound) {
+      list.dataset.tabPersistBound = '1';
+      list.addEventListener('click', function (e) {
+        var tab = e.target.closest('[data-baseweb="tab"]');
+        if (!tab) return;
+        var idx = Array.from(list.querySelectorAll('[data-baseweb="tab"]')).indexOf(tab);
+        localStorage.setItem(KEY, String(idx));
+      });
+    }
     restoreTab();
   }
   setTimeout(watchTabs, 120);
@@ -899,7 +934,7 @@ with tab_stylist:
     for msg in st.session_state.messages:
         with st.chat_message(msg["role"]):
             if isinstance(msg["content"], dict):
-                display_outfit_recommendation(msg["content"])
+                display_outfit_recommendation(msg["content"], visuals_map=msg.get("visuals"))
                 oid = msg.get("outfit_id", "")
                 if oid and oid in st.session_state.outfit_ratings:
                     _render_rating_badge(st.session_state.outfit_ratings[oid])
@@ -969,7 +1004,14 @@ with tab_stylist:
                 status_placeholder.empty()
 
                 if isinstance(response_payload, dict):
-                    display_outfit_recommendation(response_payload)
+                    # Resolve product images once, here, and cache the result on the
+                    # message itself — history replay on later reruns reads this back
+                    # instead of re-searching the catalog for every past outfit every time.
+                    _opts = response_payload.get("outfit_options") or []
+                    _items = (_opts[0].get("items") or []) if _opts else []
+                    _visuals_map = st.session_state.catalog.search_products_parallel(_items)
+
+                    display_outfit_recommendation(response_payload, visuals_map=_visuals_map)
                     _outfit_id = response_payload.get("id", "")
                     _db_id = st.session_state.manager.conversation_state.get("last_revision_db_id") or ""
                     st.session_state.messages.append({
@@ -978,6 +1020,7 @@ with tab_stylist:
                         "type": "outfit",
                         "outfit_id": _outfit_id,
                         "db_id": _db_id,
+                        "visuals": _visuals_map,
                     })
                     # Show rating widget immediately after new outfit
                     if _outfit_id and _outfit_id not in st.session_state.outfit_ratings:
@@ -1058,11 +1101,19 @@ with tab_liked:
                         unsafe_allow_html=True,
                     )
 
-                # Image grid — same as stylist tab; disk-cached so no extra API calls
+                # Image grid — same as stylist tab; cached per-row in session_state so
+                # scrolling/rerunning this tab doesn't re-search the catalog for every
+                # saved look on every rerun (this tab can hold up to 20 outfits).
                 opts = final_outfit.get("outfit_options") or []
                 items = (opts[0].get("items") or []) if opts and isinstance(opts[0], dict) else []
                 if items:
-                    visuals_map = st.session_state.catalog.search_products_parallel(items)
+                    _liked_visuals_cache = st.session_state.setdefault("_liked_visuals_cache", {})
+                    _row_id = row.get("id")
+                    if _row_id in _liked_visuals_cache:
+                        visuals_map = _liked_visuals_cache[_row_id]
+                    else:
+                        visuals_map = st.session_state.catalog.search_products_parallel(items)
+                        _liked_visuals_cache[_row_id] = visuals_map
                     img_cols = st.columns(len(items))
                     for idx, it in enumerate(items):
                         with img_cols[idx]:
@@ -1132,12 +1183,13 @@ with tab_inspo:
                             saved_item = it
                             break
                     st.toast("Saved to your style DNA ✦")
-                    # Track save counts per source — trigger mini-expansion at 3
-                    save_counts = st.session_state.setdefault("_inspo_save_counts", {})
+                    # Trigger mini-expansion at the 3rd save from one source.
+                    # Counted from the database, not session state: a session
+                    # counter reset on every page reload, so this only ever
+                    # fired if all three saves happened in one sitting.
                     if saved_item:
                         src = saved_item.get("source_name") or ""
-                        save_counts[src] = save_counts.get(src, 0) + 1
-                        if save_counts[src] == 3:
+                        if src and inspo_store.count_feedback(user_id, src) == 3:
                             # Fire mini-expansion in background thread
                             import threading
                             from agents.inspiration_agent import mini_expand
@@ -1155,11 +1207,19 @@ with tab_inspo:
                             ).start()
                             st.toast(f"Finding more from {src}… ✦")
                 elif action == "hide" and item_id:
-                    # Delete permanently — item will never resurface
-                    inspo_store.delete_item(user_id, item_id)
+                    # Record the rejection rather than deleting the row —
+                    # fetch_top_items filters hidden items out, and keeping them
+                    # is what lets a repeatedly-hidden source get demoted.
+                    inspo_store.hide_item(user_id, item_id)
                     # Remove from session cache so it doesn't reappear on rerun
                     st.session_state["_inspo_items"] = [
                         it for it in st.session_state.get("_inspo_items", [])
                         if it.get("id") != item_id
                     ]
+                    # Push the shortened list to the component now. The board had
+                    # already rendered this run with the item still in it, and
+                    # switching tabs is client-side so it triggers no rerun of its
+                    # own — without this the dismissed pin reappears and sits there
+                    # until some unrelated interaction happens to redraw the board.
+                    st.rerun()
 

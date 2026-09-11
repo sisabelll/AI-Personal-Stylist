@@ -1,6 +1,7 @@
 import json
 import os
 import time
+import uuid
 from datetime import datetime
 import traceback
 from typing import Dict, Any, Optional, List
@@ -565,6 +566,8 @@ class ConversationManager:
             self._qa_physics(final_obj)
         except Exception as e:
             logger.warning("QA Physics check failed (final): %s", e)
+
+        final_obj.id = str(uuid.uuid4())
 
         # 4) Log revisions (SAFE)
         self.conversation_state.setdefault("revisions", []).append(

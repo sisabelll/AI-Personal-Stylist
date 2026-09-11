@@ -205,19 +205,47 @@
       window.parent.postMessage({ isStreamlitMessage: true, type, ...extra }, '*');
     }
 
-    // Set iframe height once — called after render and after images settle.
+    // Set iframe height — called after render and after images settle.
     // Never driven by ResizeObserver (which fires on every hover/transition
     // and causes Streamlit to resize the iframe mid-hover, flickering images).
     let _heightRaf;
+    let _lastPostedHeight = -1;
+
+    function measureHeight() {
+      const h = document.body.scrollHeight;
+      // While this component's tab is inactive the document has no layout box,
+      // so scrollHeight reads 0. Posting 8px in that state is what collapsed
+      // the board: Streamlit latches the height, and renderBoard's early-return
+      // on an unchanged item set means nothing ever measures again. Skip the
+      // reading entirely rather than publishing a wrong one.
+      if (h <= 0) return;
+      if (h + 8 === _lastPostedHeight) return;
+      _lastPostedHeight = h + 8;
+      toSL('streamlit:setFrameHeight', { height: h + 8 });
+    }
+
     function setHeight() {
       cancelAnimationFrame(_heightRaf);
-      _heightRaf = requestAnimationFrame(() => {
-        toSL('streamlit:setFrameHeight', { height: document.body.scrollHeight + 8 });
-      });
+      _heightRaf = requestAnimationFrame(measureHeight);
     }
+
+    // Catches the height once the tab becomes active again. A ResizeObserver
+    // would do this too, but it also fires on every hover transition, which is
+    // what made the images flicker. Polling the number and only publishing real
+    // changes gives the recovery without the churn.
+    setInterval(measureHeight, 400);
 
     function sendValue(value) {
       toSL('streamlit:setComponentValue', { value, dataType: 'json' });
+      // A click landing before Streamlit has finished registering this instance
+      // is dropped with "Received component message for unregistered
+      // ComponentInstance" — the heart fills, the pin vanishes, and nothing
+      // reaches the database. Send it a second time once registration has had a
+      // moment. app.py ignores an event identical to the one it just handled,
+      // so the duplicate costs nothing when the first attempt did land.
+      setTimeout(function () {
+        toSL('streamlit:setComponentValue', { value, dataType: 'json' });
+      }, 600);
     }
 
     toSL('streamlit:componentReady', { apiVersion: 1 });
@@ -238,7 +266,11 @@
       const img = document.createElement('img');
       img.alt = item.caption || '';
       img.addEventListener('load',  () => { img.classList.add('loaded'); setHeight(); });
-      img.addEventListener('error', () => { pin.remove(); setHeight(); });
+      // A dead image URL used to remove the card and nothing else, so the
+      // header kept claiming "60 items" over a board showing 16, and a board
+      // where every image failed rendered as blank space instead of the empty
+      // state. Re-derive the count from the DOM whenever one drops out.
+      img.addEventListener('error', () => { pin.remove(); updateSub(); setHeight(); });
       img.src = item.src;
       pin.appendChild(img);
 
@@ -341,14 +373,14 @@
     // ── Board render ──────────────────────────────────────
 
     function updateSub() {
-      const count = document.getElementById('board').querySelectorAll('.pin').length;
+      const board = document.getElementById('board');
+      const empty = document.getElementById('empty');
+      const count = board.querySelectorAll('.pin').length;
       document.getElementById('sub-label').textContent = count === 0
         ? '0 items'
         : `${count} items · save what speaks to you, hide what doesn't`;
-      if (count === 0) {
-        document.getElementById('board').style.display = 'none';
-        document.getElementById('empty').style.display = 'block';
-      }
+      board.style.display = count === 0 ? 'none' : '';
+      empty.style.display = count === 0 ? 'block' : 'none';
     }
 
     function renderBoard(items) {
@@ -385,7 +417,12 @@
       // Skip rebuild if the item set hasn't changed — prevents flashing on
       // reruns triggered by save/hide events when the item list is identical.
       const key = items.map(it => it.id).join(',');
-      if (key === _lastItemKey) return;
+      if (key === _lastItemKey) {
+        // Same items, so skip the rebuild — but still re-measure. This render
+        // may be the first one to arrive while the tab is actually visible.
+        setHeight();
+        return;
+      }
       _lastItemKey = key;
       renderBoard(items);
     });
