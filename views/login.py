@@ -107,10 +107,18 @@ def render_login(supabase, on_login=None):
         # because the server restarts between redirect legs and loses memory).
         supabase_url = os.getenv("SUPABASE_URL", "")
         callback_url = os.getenv("APP_URL", "http://localhost:8501")
+        # prompt=select_account makes Google always show the account chooser.
+        # Without it, a browser signed into several Google accounts lets Google
+        # pick one via an authuser index, and when that guess doesn't match the
+        # account resolving the flow it serves a bare "403. That's an error."
+        # page with no explanation. Supabase forwards the parameter straight
+        # through to Google. Signing in works in incognito precisely because a
+        # fresh profile has exactly one account to choose from.
         oauth_url = (
             f"{supabase_url}/auth/v1/authorize"
             f"?provider=google"
             f"&redirect_to={quote(callback_url, safe='')}"
+            f"&prompt=select_account"
         )
         st_components.html(
             "<script>"
