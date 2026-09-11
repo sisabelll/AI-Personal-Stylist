@@ -476,8 +476,6 @@ def run(user_id: str, user_profile: dict) -> None:
             print("ℹ️  No Instagram handles found — skipping Stage 5.")
         else:
             print(f"📸 Fetching Instagram posts for {len(all_handles)} handle(s): {all_handles}…")
-            # Purge stale Instagram items before inserting fresh ones
-            inspiration_store.delete_instagram_items(user_id)
             posts_by_handle = apify.fetch_profiles_batch(all_handles, max_posts_each=15)
 
             ig_items: List[Dict[str, Any]] = []
@@ -512,8 +510,19 @@ def run(user_id: str, user_profile: dict) -> None:
             ig_items = _filter_fashion_posts(ig_items, llm)
             print(f"✅ {len(ig_items)} posts passed fashion relevance filter")
             if ig_items:
+                # Purge only once replacements are in hand. This used to run
+                # before the Apify call, which was harmless only because the
+                # purge matched nothing: it filtered source_type='instagram'
+                # while this stage writes 'icon'/'brand'. Fixing the filter
+                # turned a dead statement into a destructive one sitting in
+                # front of a network call whose failure is swallowed as
+                # non-fatal below — one bad Apify response and the board is
+                # emptied with nothing to refill it.
+                inspiration_store.delete_instagram_items(user_id)
                 inspiration_store.upsert_items(user_id, ig_items)
                 print(f"✅ Upserted {len(ig_items)} Instagram items for user {user_id}\n")
+            else:
+                print("ℹ️  No Instagram posts survived filtering — keeping existing items.\n")
 
     except RuntimeError:
         print("ℹ️  APIFY_API_KEY not set — skipping Instagram stage.")
