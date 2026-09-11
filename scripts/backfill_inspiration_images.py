@@ -33,6 +33,27 @@ from services.storage import StorageService
 from services.image_identity import image_dedupe_key
 from services.image_mirror import mirror_image, download_image, BUCKET_NAME, ensure_bucket
 
+_MIRROR_MARKER = f"/storage/v1/object/public/{BUCKET_NAME}/"
+
+
+def identity_key(image_url: str) -> str:
+    """
+    Stable identity for a row, whether or not its image has been mirrored.
+
+    A mirrored URL ends in <sha1-of-original-identity>.<ext>, because that is
+    how mirror_image names the object — so the key can be read straight back
+    out of the path. Hashing the mirrored URL instead would give one photo two
+    identities (one for the original row, one for the mirrored row), which is
+    how two rows slipped past grouping and collided on uq_inspo_user_dedupe.
+    """
+    url = image_url or ""
+    if _MIRROR_MARKER in url:
+        stem = url.rsplit("/", 1)[-1].split("?", 1)[0]
+        stem = stem.rsplit(".", 1)[0]
+        if len(stem) == 40 and all(c in "0123456789abcdef" for c in stem):
+            return stem
+    return image_dedupe_key(url)
+
 # A row the user has acted on is worth more than an untouched one.
 _FEEDBACK_RANK = {"save": 3, "like": 2, None: 1, "": 1, "dislike": 0, "hide": 0}
 
@@ -87,7 +108,7 @@ def main() -> int:
     for user_id, user_rows in by_user.items():
         groups: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
         for r in user_rows:
-            key = image_dedupe_key(r.get("image_url") or "")
+            key = identity_key(r.get("image_url") or "")
             if not key:
                 totals["no_url"] += 1
                 continue
@@ -158,12 +179,22 @@ def main() -> int:
         # 3. Optionally drop rows whose image is gone for good.
         if dead:
             if args.prune_dead:
-                for row in dead:
+                # A row the user acted on is a record, not a picture. Hidden
+                # rows are never rendered, so a dead image costs nothing —
+                # while deleting one drops a source below the 2-hide threshold
+                # fetch_feedback_signals needs and silently erases a demotion.
+                keep = [r for r in dead if r.get("feedback")]
+                prunable = [r for r in dead if not r.get("feedback")]
+                for row in prunable:
                     try:
                         sb.table("inspiration_items").delete().eq("id", row["id"]).execute()
                     except Exception as e:
                         print(f"    prune {row['id']} failed: {e}")
-                print(f"  pruned {len(dead)} rows with unreachable images")
+                print(f"  pruned {len(prunable)} rows with unreachable images")
+                if keep:
+                    print(f"  kept {len(keep)} unreachable row(s) carrying feedback "
+                          f"({', '.join(sorted({r.get('feedback') for r in keep}))}) — "
+                          "they are signal, not display")
             else:
                 print(f"  {len(dead)} rows have unreachable images "
                       f"(re-run with --prune-dead to delete them)")
