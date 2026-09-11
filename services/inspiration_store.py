@@ -95,14 +95,20 @@ class InspirationStore:
 
         if mirror and rows:
             stats = mirror_items(self.storage_client, user_id, rows)
-            logger.info(
-                "[InspirationStore] mirrored %s/%s images (%s unreachable)",
-                stats["mirrored"], len(rows), stats["failed"],
-            )
-            # An image we could never fetch is an image the board can never
-            # render. Drop it here instead of storing a row that shows up as a
-            # missing card later.
-            rows = [r for r in rows if not r.pop("_mirror_failed", False)]
+            if stats.get("storage_available", True):
+                logger.info(
+                    "[InspirationStore] mirrored %s/%s images (%s unreachable)",
+                    stats["mirrored"], len(rows), stats["failed"],
+                )
+                # An image we could never fetch is an image the board can never
+                # render. Drop it here instead of storing a row that shows up as
+                # a missing card later.
+                rows = [r for r in rows if not r.pop("_mirror_failed", False)]
+            else:
+                # Storage is down or misconfigured, not the images. Dropping
+                # here would write an empty board on every refresh.
+                for r in rows:
+                    r.pop("_mirror_failed", None)
             for r in rows:
                 r.pop("_source_url", None)
 

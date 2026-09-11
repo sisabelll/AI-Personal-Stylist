@@ -418,3 +418,60 @@ class TestDuplicateDeliveryIsHarmless:
 
         # Two distinct photos saved, not three events counted
         assert store.count_feedback("user-1", "Bella Hadid") == 2
+
+
+class TestStorageOutageDoesNotEmptyTheBoard:
+    """
+    Mirroring needs the service key: with only the anon role, get_bucket
+    returns 404 and upload returns 403 "new row violates row-level security
+    policy". Verified against the live project. A runtime missing
+    SUPABASE_SERVICE_KEY would therefore fail every upload — and if that
+    dropped every item, building a board would write nothing at all.
+    """
+
+    def test_items_survive_when_the_object_store_is_unreachable(self, store, monkeypatch):
+        import services.inspiration_store as mod
+
+        def storage_down(client, user_id, items, max_workers=8):
+            for it in items:
+                it["_mirror_failed"] = True
+            return {"mirrored": 0, "failed": len(items), "storage_available": False}
+
+        monkeypatch.setattr(mod, "mirror_items", storage_down)
+        store.upsert_items("user-1", [_ig_item(SAME_PHOTO_DIFFERENT_EDGES[0])], mirror=True)
+
+        rows = store.supabase.table("inspiration_items").rows
+        assert len(rows) == 1, "a storage outage must not silently empty the board"
+        assert rows[0]["image_url"] == SAME_PHOTO_DIFFERENT_EDGES[0], "keeps the original URL"
+        assert "_mirror_failed" not in rows[0]
+        assert "_source_url" not in rows[0]
+
+    def test_unfetchable_images_are_still_dropped_when_storage_is_healthy(self, store, monkeypatch):
+        import services.inspiration_store as mod
+
+        def one_dead(client, user_id, items, max_workers=8):
+            items[0]["_mirror_failed"] = True
+            items[1]["image_url"] = "https://proj.supabase.co/storage/v1/object/public/inspiration/u/a.jpg"
+            return {"mirrored": 1, "failed": 1, "storage_available": True}
+
+        monkeypatch.setattr(mod, "mirror_items", one_dead)
+        store.upsert_items("user-1", [
+            _ig_item(SAME_PHOTO_DIFFERENT_EDGES[0]),
+            _ig_item(DIFFERENT_PHOTO),
+        ], mirror=True)
+
+        rows = store.supabase.table("inspiration_items").rows
+        assert len(rows) == 1, "a genuinely dead image should still be dropped"
+        assert "/storage/v1/object/public/" in rows[0]["image_url"]
+
+    def test_legacy_stats_without_the_flag_still_drop(self, store, monkeypatch):
+        """Defaults to the strict path if a caller returns the older shape."""
+        import services.inspiration_store as mod
+
+        def old_shape(client, user_id, items, max_workers=8):
+            items[0]["_mirror_failed"] = True
+            return {"mirrored": 0, "failed": 1}
+
+        monkeypatch.setattr(mod, "mirror_items", old_shape)
+        store.upsert_items("user-1", [_ig_item(SAME_PHOTO_DIFFERENT_EDGES[0])], mirror=True)
+        assert store.supabase.table("inspiration_items").rows == []

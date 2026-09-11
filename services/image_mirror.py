@@ -170,7 +170,22 @@ def mirror_items(
     Returns {"mirrored": n, "failed": n}.
     """
     if not items:
-        return {"mirrored": 0, "failed": 0}
+        return {"mirrored": 0, "failed": 0, "storage_available": True}
+
+    # If the object store itself is unreachable, every upload will fail and the
+    # caller would drop every item — turning a misconfigured deployment into a
+    # silently empty board. Degrade to the pre-mirroring behaviour instead:
+    # keep the original URLs, which at least render wherever they are not
+    # hotlink-protected. The common cause is a runtime with no
+    # SUPABASE_SERVICE_KEY, where the anon role cannot create or write the
+    # bucket (get_bucket 404, upload 403 row-level security).
+    if not ensure_bucket(client):
+        logger.warning(
+            "[image_mirror] object store unavailable — keeping original image URLs "
+            "for %d item(s). Images will expire as before. Check SUPABASE_SERVICE_KEY.",
+            len(items),
+        )
+        return {"mirrored": 0, "failed": 0, "storage_available": False}
 
     def _one(item: Dict[str, Any]) -> bool:
         original = item.get("image_url") or ""
@@ -186,4 +201,8 @@ def mirror_items(
         results = list(ex.map(_one, items))
 
     mirrored = sum(1 for ok in results if ok)
-    return {"mirrored": mirrored, "failed": len(results) - mirrored}
+    return {
+        "mirrored": mirrored,
+        "failed": len(results) - mirrored,
+        "storage_available": True,
+    }
