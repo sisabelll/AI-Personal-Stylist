@@ -13,9 +13,22 @@ def make_item(category: str, item_name: str):
 
 
 def apply_swap(stylist: StyleStylist, old_items, new_items, swap_requests):
-    # Mimic the key deterministic post-processing path in StyleStylist
-    print(f"\n🧪 swap_requests: {swap_requests}")
-    stabilized = stylist._stabilize_outfit(new_items, old_items, swap_requests)
+    """
+    Mimic the deterministic post-processing path in StyleStylist.
+
+    _stabilize_outfit takes the EXPANDED unlock set plus an explicit
+    onepiece_requested flag derived from the raw request — see its docstring.
+    This helper used to pass the raw list and let the flag default to False,
+    which silently dropped the OnePiece on every separates-to-dress swap and
+    read like a product bug. compute_swap_set and onepiece_requested below have
+    always existed for exactly this; they just weren't wired in.
+    """
+    stabilized = stylist._stabilize_outfit(
+        new_items,
+        old_items,
+        sorted(compute_swap_set(old_items, swap_requests)),
+        onepiece_requested(swap_requests),
+    )
     return stylist._enforce_one_piece_physics(stabilized)
 
 
