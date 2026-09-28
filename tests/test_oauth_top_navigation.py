@@ -53,37 +53,23 @@ class TestOutboundLegIsARealLink:
         assert m and m.group(1) == "oauth_url"
 
 
-class TestReturnLegNeverNavigates:
-    def test_does_not_navigate_the_top_window(self):
-        assert "top_.location.replace" not in APP_CODE
-        assert "window.top.location.replace" not in APP_CODE
+class TestReturnLegDoesNotNavigateAtAll:
+    """
+    The return leg moved to components/oauth_bridge, which hands the tokens over
+    the websocket. app.py no longer rewrites any URL, so there is nothing here
+    for the Cloud sandbox to block and no token to leak into a URL.
+    Behaviour of the bridge itself is covered by tests/test_oauth_bridge.py.
+    """
 
-    def test_reads_the_hash_but_only_reads(self):
-        """Reading across same-origin frames is fine; navigating is not."""
-        assert "top_.location.hash" in APP_CODE
+    def test_app_does_not_inject_a_token_navigation(self):
+        assert "searchParams.set('access_token'" not in APP_CODE
+        assert "searchParams.set('refresh_token'" not in APP_CODE
 
-    def test_hands_tokens_over_via_the_session_cookie(self):
-        assert "parentDoc.cookie" in APP_CODE
-        assert "access_token" in APP_CODE and "refresh_token" in APP_CODE
+    def test_app_delegates_to_the_bridge(self):
+        assert "_oauth_tokens = oauth_bridge()" in APP_CODE
 
-    def test_reloads_only_its_own_frame(self):
-        assert "window.location.reload()" in APP_CODE, (
-            "self-navigation is the one move no sandbox flag restricts"
-        )
-
-    def test_clears_tokens_from_the_address_bar_without_navigating(self):
-        assert "history.replaceState" in APP_CODE
-
-    def test_cookie_name_and_ttl_come_from_the_python_constants(self):
-        """
-        The JS writes the cookie Python reads, so the two must not drift apart.
-        The snippet is an f-string, so the source carries the interpolation
-        placeholders rather than the literal values — assert on those.
-        """
-        assert re.search(r'_COOKIE_NAME\s*=\s*"[^"]+"', APP_SRC), "missing _COOKIE_NAME"
-        assert re.search(r"_COOKIE_TTL_DAYS\s*=\s*\d+", APP_SRC), "missing _COOKIE_TTL_DAYS"
-        assert '"{_COOKIE_NAME}=" +' in APP_SRC, "JS must interpolate the Python cookie name"
-        assert "max-age={_COOKIE_TTL_DAYS * 86400}" in APP_SRC, "JS must interpolate the Python TTL"
+    def test_no_top_window_navigation_anywhere(self):
+        assert "window.top" not in APP_CODE
 
 
 class TestNoInjectedNavigationSurvivesAnywhere:
@@ -92,12 +78,18 @@ class TestNoInjectedNavigationSurvivesAnywhere:
     NAV_RE = re.compile(r"s\.textContent\s*=\s*[\"']([^\"']*)[\"']")
 
     @pytest.mark.parametrize("name,src", [("views/login.py", LOGIN_CODE), ("app.py", APP_CODE)])
-    def test_injected_scripts_do_not_navigate_an_ancestor(self, name, src):
+    def test_injected_scripts_never_target_the_top_window(self, name, src):
+        """
+        Self-navigation is fine and is what the return leg depends on. What the
+        sandbox forbids is reaching above the app frame — window.top or
+        window.parent from inside the frame's own injected script.
+        """
         for m in self.NAV_RE.finditer(src):
             body = m.group(1)
-            assert "location.replace" not in body, (
-                f"{name} injects an ancestor navigation ({body!r}); the Cloud sandbox "
-                "blocks it and Google 403s when framed"
+            assert "window.top" not in body, (
+                f"{name} injects a top-window navigation ({body!r}); the Cloud "
+                "wrapper frame is sandboxed without allow-top-navigation and it "
+                "throws SecurityError"
             )
 
 
@@ -131,9 +123,14 @@ class TestSessionCookieIsSecureOverHttps:
         return [l for l in APP_SRC.splitlines()
                 if "_COOKIE_NAME" in l and (".cookie=" in l or ".cookie =" in l)]
 
-    def test_all_three_write_sites_are_found(self):
-        """Guards the loop below against passing vacuously."""
-        assert len(self._write_sites()) == 3, self._write_sites()
+    def test_both_write_sites_are_found(self):
+        """
+        Guards the loop below against passing vacuously. Two sites: the clear
+        and the set in the _save_session_cookie flush. The OAuth return leg used
+        to add a third, but it no longer writes a cookie at all — st.context.cookies
+        cannot read it on Streamlit Cloud, so it stored a bearer token for nothing.
+        """
+        assert len(self._write_sites()) == 2, self._write_sites()
 
     def test_every_cookie_write_can_set_secure(self):
         lines = APP_SRC.splitlines()
