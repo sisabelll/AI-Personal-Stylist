@@ -24,6 +24,7 @@ from views.settings import render_settings
 # --- COMPONENTS ---
 from components.inspiration_board import inspiration_board as inspo_board_component
 from components.chat_status import chat_status
+from components.oauth_bridge import oauth_bridge
 import streamlit.components.v1 as st_components
 
 # --- CONFIG ---
@@ -408,52 +409,44 @@ if "user" not in st.session_state and not DEV_MODE:
         except Exception:
             _clear_session_cookie()
 
-# Supabase hands the tokens back in the URL hash (implicit flow), which Python
-# never sees. This hands them over as query params instead, by navigating the
-# APP FRAME to its own URL — st.query_params then picks them up below.
+# Supabase returns the session in the URL fragment (implicit flow), which the
+# server never sees. oauth_bridge reads it in the browser and returns it as a
+# component value, so the tokens travel over the existing websocket.
 #
-# Two things here look like bugs and are not. Do not "fix" either one:
+# Two approaches that look simpler are both wrong here, and each was shipped and
+# reverted — see components/oauth_bridge for the measurements:
 #
-# 1. It navigates window.parent, not window.top. On Streamlit Cloud the app runs
-#    inside a wrapper iframe sandboxed without allow-top-navigation, so touching
-#    the top window throws SecurityError. Navigating the app frame to its own URL
-#    is self-navigation, which no sandbox flag restricts. (A previous change
-#    retargeted this at window.top and broke the whole return leg.)
-#
-# 2. It does not use the sb_session cookie. Verified against the deployed app:
-#    the cookie is written and visible in the browser, yet st.context.cookies
-#    does not see it there, so the restore silently never fires. The same token
-#    pair that failed through the cookie logged in immediately through query
-#    params.
-st_components.html("""
-<script>
-(function() {
-    // window.parent is the app frame on Streamlit Cloud, and the tab itself
-    // when running locally where no wrapper frame exists.
-    const win = window.parent || window;
-    const hash = win.location.hash.substring(1);
-    if (!hash) return;
-    const p = new URLSearchParams(hash);
-    const at = p.get('access_token');
-    const rt = p.get('refresh_token');
-    if (!at || !rt) return;
-
-    const url = new URL(win.location.href);
-    url.hash = '';
-    url.searchParams.set('access_token', at);
-    url.searchParams.set('refresh_token', rt);
-
-    // Injected into the app frame so it is that frame navigating itself.
-    const s = win.document.createElement('script');
-    s.textContent = 'window.location.replace(' + JSON.stringify(url.toString()) + ');';
-    win.document.head.appendChild(s);
-})();
-</script>
-""", height=0)
+#   * rewriting the URL into ?access_token=...&refresh_token=... works, but puts
+#     a long-lived refresh token in the address bar, browser history, and the
+#     hosting proxy's access logs
+#   * writing it to a cookie does not work at all: on Streamlit Cloud the cookie
+#     is set and visible in the browser, yet st.context.cookies never sees it
+_oauth_tokens = oauth_bridge()
 
 query_params = st.query_params
 
-# Implicit-flow callback: tokens arrive as query params (set by the JS above)
+# Implicit-flow callback: tokens arrive over the websocket from oauth_bridge.
+if (
+    _oauth_tokens
+    and isinstance(_oauth_tokens, dict)
+    and _oauth_tokens.get("access_token")
+    and "user" not in st.session_state
+):
+    try:
+        restored = storage.supabase.auth.set_session(
+            _oauth_tokens["access_token"], _oauth_tokens["refresh_token"]
+        )
+        if restored and restored.user:
+            st.session_state["session"] = restored.session
+            st.session_state["user"]    = restored.user
+            st.session_state["user_id"] = restored.user.id
+            _save_session_cookie(restored.session)
+            st.rerun()
+    except Exception as e:
+        st.error(f"Login failed: {e}")
+
+# Legacy path: a URL still carrying tokens as query params, e.g. a bookmarked
+# callback from before the switch. Clear them either way so they do not linger.
 if "access_token" in query_params and "user" not in st.session_state:
     try:
         restored = storage.supabase.auth.set_session(
@@ -467,6 +460,7 @@ if "access_token" in query_params and "user" not in st.session_state:
             st.query_params.clear()
             st.rerun()
     except Exception as e:
+        st.query_params.clear()
         st.error(f"Login failed: {e}")
 
 # 🛑 GATE 1: LOGIN CHECK
