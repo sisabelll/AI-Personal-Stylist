@@ -84,7 +84,7 @@ def test_swap_unchanged_is_flagged():
     manager = make_manager()
     current_items = [make_item("Shoes", "Old Shoes")]
     outfit = make_outfit([make_item("Shoes", "Old Shoes")])
-    res = manager._check_swap_requirements(outfit, current_items, ["Shoes"], ["Shoes"])
+    res = manager._check_swap_requirements(outfit, current_items, ["Shoes"])
     assert res["missing"] == []
     assert res["forbidden"] == []
     assert res["unchanged"] == ["Shoes"]

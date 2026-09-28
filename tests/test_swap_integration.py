@@ -45,11 +45,13 @@ class TestSwapIntegration(unittest.TestCase):
         self.assertEqual(raw_set, {"Bottom"})
         self.assertEqual(expanded, {"Bottom", "OnePiece", "Top"})
 
-    def test_stylist_prefers_raw_swaps(self):
+    def test_stylist_uses_the_expanded_swap_set(self):
         stylist = StyleStylist(client=None)
         feedback = {"swap_out_raw": ["Bottom"], "swap_out": ["Bottom", "OnePiece", "Top"]}
-        raw = stylist._get_swap_requests_raw(feedback)
-        self.assertEqual(raw, ["Bottom"])
+        expanded = stylist._get_swap_requests_expanded(feedback)
+        # The prompt needs every unlocked category, or "Top is locked" contradicts
+        # the physics that swapping a Bottom off a dress frees the Top too.
+        self.assertEqual(expanded, ["Bottom", "OnePiece", "Top"])
 
 
 if __name__ == "__main__":
