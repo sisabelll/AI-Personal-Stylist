@@ -135,6 +135,17 @@ class ContextInterpreter:
         3. 'finalize_outfit': 
            - User accepts the current state (Perfect, Great, Thanks).
 
+        4. 'new_outfit':
+           - User wants a DIFFERENT OUTFIT ENTIRELY, not an adjustment to this one.
+           - Any request for "a different / another / new outfit" or "a different look".
+           - The key test: is the user replacing the WHOLE outfit, or changing PART
+             of it? Naming a garment or attribute means modify_outfit. Referring to
+             the outfit or look as a whole means new_outfit.
+
+        5. 'reset_session':
+           - User wants to abandon the occasion entirely and start the conversation
+             over ("forget this", "let's start from scratch", "never mind all this").
+
         TRICKY EXAMPLES (Study These):
         - User: "Is tweed too much?" 
           Reasoning: Starts with 'Is'. Asks for judgment. 
@@ -146,6 +157,26 @@ class ContextInterpreter:
           
         - User: "What if I wear boots?" 
           Reasoning: 'What if' proposes a new state. 
+          Action: modify_outfit
+
+        - User: "Give me a different outfit"
+          Reasoning: 'outfit' as a whole, not a named garment. Wholesale replacement.
+          Action: new_outfit
+
+        - User: "I want a completely different look"
+          Reasoning: 'look' as a whole. Nothing here to preserve.
+          Action: new_outfit
+
+        - User: "Show me another one"
+          Reasoning: 'another one' refers to the outfit, not a part of it.
+          Action: new_outfit
+
+        - User: "Change the shoes"
+          Reasoning: names a single garment. The rest of the outfit stands.
+          Action: modify_outfit
+
+        - User: "Make it more casual"
+          Reasoning: adjusts an attribute of the existing outfit.
           Action: modify_outfit
         """
         
