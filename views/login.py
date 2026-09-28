@@ -100,42 +100,39 @@ def render_login(supabase, on_login=None):
     st.markdown("---")
     st.markdown("<p style='text-align:center;color:#888;font-size:0.85rem;margin-bottom:0.5rem'>or continue with</p>", unsafe_allow_html=True)
 
-    if st.button("Continue with Google", use_container_width=True):
-        # Build the Supabase OAuth URL manually — no PKCE code_challenge —
-        # so Supabase uses implicit flow and returns tokens in the URL hash
-        # instead of requiring a PKCE code exchange (which breaks in Streamlit
-        # because the server restarts between redirect legs and loses memory).
-        supabase_url = os.getenv("SUPABASE_URL", "")
-        callback_url = os.getenv("APP_URL", "http://localhost:8501")
-        # prompt=select_account makes Google always show the account chooser.
-        # Without it, a browser signed into several Google accounts lets Google
-        # pick one via an authuser index, and when that guess doesn't match the
-        # account resolving the flow it serves a bare "403. That's an error."
-        # page with no explanation. Supabase forwards the parameter straight
-        # through to Google. Signing in works in incognito precisely because a
-        # fresh profile has exactly one account to choose from.
-        oauth_url = (
-            f"{supabase_url}/auth/v1/authorize"
-            f"?provider=google"
-            f"&redirect_to={quote(callback_url, safe='')}"
-            f"&prompt=select_account"
-        )
-        st_components.html(
-            "<script>"
-            "(function() {"
-            f"  var url = {json.dumps(oauth_url)};"
-            "  var s = window.parent.document.createElement('script');"
-            # Navigate the TOP window, not this frame. On Streamlit Cloud the app
-            # itself runs inside an iframe (my-stylist.streamlit.app/~/+/), so the
-            # injected script's `window` is that frame rather than the tab. Sending
-            # it to accounts.google.com loaded Google's sign-in INSIDE a frame, and
-            # Google refuses to be framed — it answers with a bare
-            # "403. That's an error. ... That's all we know." with no OAuth error
-            # code, which reads like the client or the account is broken. Locally
-            # there is no wrapper frame, so this only ever failed once deployed.
-            "  s.textContent = '(window.top || window).location.replace(' + JSON.stringify(url) + ');';"
-            "  window.parent.document.head.appendChild(s);"
-            "})();"
-            "</script>",
-            height=0,
-        )
+    # Build the Supabase OAuth URL manually — no PKCE code_challenge — so
+    # Supabase uses the implicit flow and returns tokens in the URL hash rather
+    # than requiring a PKCE code exchange (which breaks in Streamlit because the
+    # server restarts between redirect legs and loses the verifier).
+    supabase_url = os.getenv("SUPABASE_URL", "")
+    callback_url = os.getenv("APP_URL", "http://localhost:8501")
+    oauth_url = (
+        f"{supabase_url}/auth/v1/authorize"
+        f"?provider=google"
+        f"&redirect_to={quote(callback_url, safe='')}"
+        f"&prompt=select_account"
+    )
+
+    # A real link, not a button that injects JS.
+    #
+    # Streamlit Cloud serves the app inside a wrapper iframe whose sandbox is
+    # "allow-forms allow-modals allow-popups allow-popups-to-escape-sandbox
+    # allow-same-origin allow-scripts allow-downloads" — note there is no
+    # allow-top-navigation. So the old approach (inject a script that calls
+    # location.replace on the parent/top) could not move the tab: navigating the
+    # frame itself loaded accounts.google.com framed, and Google refuses to be
+    # framed, answering with a bare "403. That's an error ... That's all we
+    # know." Retargeting it at window.top then threw SecurityError outright.
+    #
+    # allow-popups IS granted, and allow-popups-to-escape-sandbox means the new
+    # tab is a clean, unsandboxed context. A link the user actually clicks
+    # carries the user activation a popup needs; a script injected after a
+    # Streamlit rerun has none, which is why the old code was blocked either way.
+    #
+    # Verified in the deployed app: clicking through this path reaches the Google
+    # account chooser and completes the round trip.
+    st.link_button(
+        "Continue with Google",
+        oauth_url,
+        use_container_width=True,
+    )

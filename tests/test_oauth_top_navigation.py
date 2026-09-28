@@ -1,30 +1,29 @@
 """
-"Continue with Google" returned a bare Google error on the deployed app:
+Google sign-in returned a bare 403 on the deployed app, and the earlier
+"navigate window.top" fix then threw SecurityError instead.
 
-    403. That's an error.
-    We're sorry, but you do not have access to this page. That's all we know.
+Both failures are the same constraint. Streamlit Cloud serves the app inside a
+wrapper iframe (my-stylist.streamlit.app/~/+/) whose sandbox is, read from the
+live page:
 
-No OAuth error code, no styled "Access blocked" screen — so it read like the
-client, the consent screen, or the account was misconfigured. All of those were
-verified healthy four times.
+    allow-forms allow-modals allow-popups allow-popups-to-escape-sandbox
+    allow-same-origin allow-scripts allow-downloads
 
-The real cause, confirmed by driving the deployed app in a real browser: on
-Streamlit Cloud the app runs inside a wrapper iframe
-(my-stylist.streamlit.app/~/+/). The injected redirect script ran
-`window.location.replace(...)`, where `window` is that frame, not the tab. So
-Google's sign-in page was requested INSIDE an iframe, and Google refuses to be
-framed — X-Frame-Options on accounts.google.com answers with that bare 403.
+There is no allow-top-navigation. So:
 
-Measured in the browser at the moment of failure:
+  * navigating the frame itself loaded accounts.google.com framed, and Google
+    refuses to be framed -> "403. That's an error ... That's all we know."
+  * navigating window.top threw
+    "Unsafe attempt to initiate navigation for frame with URL ... The frame
+     attempting navigation of the top-level window is sandboxed".
 
-    top window URL : https://my-stylist.streamlit.app/     (never navigated)
-    app frame      : cross-origin SecurityError            (had gone to Google)
-    window === top : False
+allow-popups IS granted, and a link the user actually clicks carries the user
+activation a popup needs — a script injected after a Streamlit rerun has none.
+So the outbound leg is a real anchor (st.link_button), and the return leg never
+navigates at all: it writes the session cookie Python already reads and reloads
+only its own frame.
 
-Navigating `window.top` instead produced the account chooser.
-
-Locally there is no wrapper frame — `window` IS the tab — so this could only
-ever fail once deployed, which is why every local test passed.
+None of this reproduces locally, where there is no wrapper frame.
 """
 import re
 
@@ -33,62 +32,121 @@ import pytest
 LOGIN_SRC = open("views/login.py").read()
 APP_SRC = open("app.py").read()
 
-# The lines that inject a navigation into the parent document.
-NAV_RE = re.compile(r"s\.textContent\s*=\s*'([^']*location\.replace[^']*)'")
+# Code, not the comments that explain the history.
+LOGIN_CODE = "\n".join(l for l in LOGIN_SRC.splitlines() if not l.strip().startswith("#"))
+APP_CODE = "\n".join(l for l in APP_SRC.splitlines() if not l.strip().startswith("#"))
 
 
-def injected_navigations():
-    found = []
-    for name, src in (("views/login.py", LOGIN_SRC), ("app.py", APP_SRC)):
-        for m in NAV_RE.finditer(src):
-            found.append((name, m.group(1)))
-    return found
-
-
-class TestEveryInjectedNavigationTargetsTheTopWindow:
-    def test_both_injection_sites_are_present(self):
-        """Guards against the assertions below passing vacuously."""
-        found = injected_navigations()
-        names = {n for n, _ in found}
-        assert names == {"views/login.py", "app.py"}, f"expected both sites, got {found}"
-
-    @pytest.mark.parametrize("name,snippet", injected_navigations(),
-                             ids=[f"{n}:{i}" for i, (n, _) in enumerate(injected_navigations())])
-    def test_navigation_escapes_the_wrapper_frame(self, name, snippet):
-        assert "window.top" in snippet, (
-            f"{name} navigates its own frame. On Streamlit Cloud that frame is the "
-            "app wrapper, so Google's sign-in loads framed and returns a bare 403."
+class TestOutboundLegIsARealLink:
+    def test_uses_link_button(self):
+        assert "st.link_button(" in LOGIN_CODE, (
+            "the sign-in must be an anchor the user clicks; a script injected after "
+            "a rerun has no user activation and the popup is blocked"
         )
 
-    @pytest.mark.parametrize("name,snippet", injected_navigations(),
-                             ids=[f"{n}:{i}" for i, (n, _) in enumerate(injected_navigations())])
-    def test_falls_back_when_there_is_no_wrapper(self, name, snippet):
-        """Locally window.top IS window; the expression must still work."""
-        assert "|| window" in snippet, f"{name} should fall back to window when top is absent"
+    def test_does_not_inject_a_navigation_script(self):
+        assert "location.replace" not in LOGIN_CODE
+        assert "createElement('script')" not in LOGIN_CODE
 
-    @pytest.mark.parametrize("name,snippet", injected_navigations(),
-                             ids=[f"{n}:{i}" for i, (n, _) in enumerate(injected_navigations())])
-    def test_bare_window_location_replace_is_gone(self, name, snippet):
-        assert not re.search(r"(?<![.\w])window\.location\.replace", snippet), (
-            f"{name} still has a bare window.location.replace"
+    def test_link_points_at_the_built_oauth_url(self):
+        m = re.search(r"st\.link_button\(\s*\"Continue with Google\",\s*(\w+)", LOGIN_CODE)
+        assert m and m.group(1) == "oauth_url"
+
+
+class TestReturnLegNeverNavigates:
+    def test_does_not_navigate_the_top_window(self):
+        assert "top_.location.replace" not in APP_CODE
+        assert "window.top.location.replace" not in APP_CODE
+
+    def test_reads_the_hash_but_only_reads(self):
+        """Reading across same-origin frames is fine; navigating is not."""
+        assert "top_.location.hash" in APP_CODE
+
+    def test_hands_tokens_over_via_the_session_cookie(self):
+        assert "parentDoc.cookie" in APP_CODE
+        assert "access_token" in APP_CODE and "refresh_token" in APP_CODE
+
+    def test_reloads_only_its_own_frame(self):
+        assert "window.location.reload()" in APP_CODE, (
+            "self-navigation is the one move no sandbox flag restricts"
         )
 
+    def test_clears_tokens_from_the_address_bar_without_navigating(self):
+        assert "history.replaceState" in APP_CODE
 
-class TestSignInUrlIsUnchanged:
-    """The 403 was never about the URL — don't regress what was already correct."""
+    def test_cookie_name_and_ttl_come_from_the_python_constants(self):
+        """
+        The JS writes the cookie Python reads, so the two must not drift apart.
+        The snippet is an f-string, so the source carries the interpolation
+        placeholders rather than the literal values — assert on those.
+        """
+        assert re.search(r'_COOKIE_NAME\s*=\s*"[^"]+"', APP_SRC), "missing _COOKIE_NAME"
+        assert re.search(r"_COOKIE_TTL_DAYS\s*=\s*\d+", APP_SRC), "missing _COOKIE_TTL_DAYS"
+        assert '"{_COOKIE_NAME}=" +' in APP_SRC, "JS must interpolate the Python cookie name"
+        assert "max-age={_COOKIE_TTL_DAYS * 86400}" in APP_SRC, "JS must interpolate the Python TTL"
 
-    def test_still_forces_the_account_chooser(self):
+
+class TestNoInjectedNavigationSurvivesAnywhere:
+    """The defect class: any injected script that moves a window above this frame."""
+
+    NAV_RE = re.compile(r"s\.textContent\s*=\s*[\"']([^\"']*)[\"']")
+
+    @pytest.mark.parametrize("name,src", [("views/login.py", LOGIN_CODE), ("app.py", APP_CODE)])
+    def test_injected_scripts_do_not_navigate_an_ancestor(self, name, src):
+        for m in self.NAV_RE.finditer(src):
+            body = m.group(1)
+            assert "location.replace" not in body, (
+                f"{name} injects an ancestor navigation ({body!r}); the Cloud sandbox "
+                "blocks it and Google 403s when framed"
+            )
+
+
+class TestSignInUrlUnchanged:
+    """The URL was never the problem — don't regress what was already right."""
+
+    def test_forces_the_account_chooser(self):
         assert "prompt=select_account" in LOGIN_SRC
 
-    def test_still_uses_implicit_flow(self):
-        """
-        No PKCE challenge in the built URL. Checked against the URL construction
-        only — login.py's comment mentions code_challenge to explain its absence,
-        so a naive substring search over the whole file matches the prose.
-        """
+    def test_uses_implicit_flow(self):
         m = re.search(r"oauth_url = \((.*?)\)", LOGIN_SRC, re.S)
-        assert m, "could not locate the oauth_url construction"
-        assert "code_challenge" not in m.group(1)
+        assert m and "code_challenge" not in m.group(1)
 
-    def test_still_passes_the_configured_app_url(self):
+    def test_uses_the_configured_app_url(self):
         assert "APP_URL" in LOGIN_SRC
+
+
+class TestSessionCookieIsSecureOverHttps:
+    """
+    The cookie carries a Supabase bearer token. Without ;Secure the browser
+    sends it over plaintext HTTP too. Flagged by automated review on the return
+    leg; the two pre-existing write sites had the same gap.
+
+    Conditional rather than unconditional: a Secure cookie is silently dropped
+    on http://localhost, which would break local development.
+    """
+
+    @staticmethod
+    def _write_sites():
+        """Assignments to document.cookie — not st.context.cookies.get() reads."""
+        return [l for l in APP_SRC.splitlines()
+                if "_COOKIE_NAME" in l and (".cookie=" in l or ".cookie =" in l)]
+
+    def test_all_three_write_sites_are_found(self):
+        """Guards the loop below against passing vacuously."""
+        assert len(self._write_sites()) == 3, self._write_sites()
+
+    def test_every_cookie_write_can_set_secure(self):
+        lines = APP_SRC.splitlines()
+        for w in self._write_sites():
+            i = lines.index(w)
+            window = "\n".join(lines[max(0, i - 3):i + 3])
+            assert "Secure" in window, f"cookie write without a Secure guard: {w.strip()[:70]}"
+
+    def test_secure_is_conditional_on_https(self):
+        assert APP_SRC.count("location.protocol === 'https:'") + \
+               APP_SRC.count('location.protocol === "https:"') >= 2, (
+            "Secure must be gated on HTTPS so localhost still works"
+        )
+
+    def test_samesite_still_set(self):
+        assert "SameSite=Lax" in APP_SRC
