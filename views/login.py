@@ -125,7 +125,15 @@ def render_login(supabase, on_login=None):
             "(function() {"
             f"  var url = {json.dumps(oauth_url)};"
             "  var s = window.parent.document.createElement('script');"
-            "  s.textContent = 'window.location.replace(' + JSON.stringify(url) + ');';"
+            # Navigate the TOP window, not this frame. On Streamlit Cloud the app
+            # itself runs inside an iframe (my-stylist.streamlit.app/~/+/), so the
+            # injected script's `window` is that frame rather than the tab. Sending
+            # it to accounts.google.com loaded Google's sign-in INSIDE a frame, and
+            # Google refuses to be framed — it answers with a bare
+            # "403. That's an error. ... That's all we know." with no OAuth error
+            # code, which reads like the client or the account is broken. Locally
+            # there is no wrapper frame, so this only ever failed once deployed.
+            "  s.textContent = '(window.top || window).location.replace(' + JSON.stringify(url) + ');';"
             "  window.parent.document.head.appendChild(s);"
             "})();"
             "</script>",
