@@ -113,3 +113,40 @@ class TestSignInUrlUnchanged:
 
     def test_uses_the_configured_app_url(self):
         assert "APP_URL" in LOGIN_SRC
+
+
+class TestSessionCookieIsSecureOverHttps:
+    """
+    The cookie carries a Supabase bearer token. Without ;Secure the browser
+    sends it over plaintext HTTP too. Flagged by automated review on the return
+    leg; the two pre-existing write sites had the same gap.
+
+    Conditional rather than unconditional: a Secure cookie is silently dropped
+    on http://localhost, which would break local development.
+    """
+
+    @staticmethod
+    def _write_sites():
+        """Assignments to document.cookie — not st.context.cookies.get() reads."""
+        return [l for l in APP_SRC.splitlines()
+                if "_COOKIE_NAME" in l and (".cookie=" in l or ".cookie =" in l)]
+
+    def test_all_three_write_sites_are_found(self):
+        """Guards the loop below against passing vacuously."""
+        assert len(self._write_sites()) == 3, self._write_sites()
+
+    def test_every_cookie_write_can_set_secure(self):
+        lines = APP_SRC.splitlines()
+        for w in self._write_sites():
+            i = lines.index(w)
+            window = "\n".join(lines[max(0, i - 3):i + 3])
+            assert "Secure" in window, f"cookie write without a Secure guard: {w.strip()[:70]}"
+
+    def test_secure_is_conditional_on_https(self):
+        assert APP_SRC.count("location.protocol === 'https:'") + \
+               APP_SRC.count('location.protocol === "https:"') >= 2, (
+            "Secure must be gated on HTTPS so localhost still works"
+        )
+
+    def test_samesite_still_set(self):
+        assert "SameSite=Lax" in APP_SRC

@@ -368,14 +368,23 @@ def _clear_session_cookie():
 _pending = st.session_state.pop("_cookie_pending", None)
 if _pending == "__clear__":
     st_components.html(
-        f"<script>window.parent.document.cookie='{_COOKIE_NAME}=;max-age=0;path=/';</script>",
+        "<script>"
+        f"window.parent.document.cookie='{_COOKIE_NAME}=;max-age=0;path=/'"
+        "+ (location.protocol === 'https:' ? ';Secure' : '');"
+        "</script>",
         height=0,
     )
 elif _pending:
     _encoded = quote(_pending)
     _ttl = _COOKIE_TTL_DAYS * 86400
+    # ;Secure whenever the page is served over HTTPS, so this bearer token is
+    # never sent over cleartext. Conditional rather than unconditional because a
+    # Secure cookie is silently dropped on http://localhost during development.
     st_components.html(
-        f"<script>window.parent.document.cookie='{_COOKIE_NAME}={_encoded};max-age={_ttl};path=/;SameSite=Lax';</script>",
+        "<script>"
+        f"window.parent.document.cookie='{_COOKIE_NAME}={_encoded};max-age={_ttl};path=/;SameSite=Lax'"
+        "+ (location.protocol === 'https:' ? ';Secure' : '');"
+        "</script>",
         height=0,
     )
 
@@ -424,7 +433,8 @@ st_components.html(f"""
 
     const payload = encodeURIComponent(JSON.stringify({{access_token: at, refresh_token: rt}}));
     const parentDoc = (window.parent || window).document;
-    parentDoc.cookie = "{_COOKIE_NAME}=" + payload + ";max-age={_COOKIE_TTL_DAYS * 86400};path=/;SameSite=Lax";
+    const secure = location.protocol === "https:" ? ";Secure" : "";
+    parentDoc.cookie = "{_COOKIE_NAME}=" + payload + ";max-age={_COOKIE_TTL_DAYS * 86400};path=/;SameSite=Lax" + secure;
 
     // Drop the tokens from the visible URL. replaceState rewrites history
     // without a navigation, so the sandbox does not apply.
