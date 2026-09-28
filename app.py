@@ -426,7 +426,11 @@ st_components.html("""
         url.searchParams.set('access_token', at);
         url.searchParams.set('refresh_token', rt);
         const s = win.document.createElement('script');
-        s.textContent = 'window.location.replace(' + JSON.stringify(url.toString()) + ');';
+        // Same top-frame rule as the sign-in redirect in views/login.py: on
+        // Streamlit Cloud this script runs inside the app's wrapper iframe, so
+        // navigating `window` would reload the frame and leave the tab's URL
+        // (and its token hash) untouched.
+        s.textContent = '(window.top || window).location.replace(' + JSON.stringify(url.toString()) + ');';
         win.document.head.appendChild(s);
     }
 })();
