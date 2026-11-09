@@ -1,0 +1,30 @@
+name: Supabase Keep-Alive
+
+# The free tier pauses a project after 7 days without activity, after which its
+# hostname stops resolving and every scheduled job fails at the first query.
+# That has broken the weekly inspiration run twice (Jul-Aug and Oct-Nov 2026).
+on:
+  schedule:
+    - cron: '0 12 */3 * *'   # every 3 days at 12:00 UTC
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - run: pip install supabase==2.27.2
+
+      - name: Query the database
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python -c "from services.storage import StorageService; StorageService().check_connection(); print('Supabase reachable')"

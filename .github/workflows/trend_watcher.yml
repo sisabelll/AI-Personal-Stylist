@@ -33,6 +33,9 @@ jobs:
           GOOGLE_CSE_ID: ${{ secrets.GOOGLE_CSE_ID }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        # An explicit shell turns on pipefail; without it the step reports tee's
+        # exit code and a crashed run shows green.
+        shell: bash
         run: python agents/trend_watcher.py 2>&1 | tee /tmp/trend_output.txt
 
       - name: Send run summary email
