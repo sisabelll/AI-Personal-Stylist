@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8" /></head>
+<body>
+<script>
+  // ── Streamlit wire protocol ────────────────────────────────────────────
+  function toSL(type, extra) {
+    window.parent.postMessage({ isStreamlitMessage: true, type, ...extra }, '*');
+  }
+  function sendValue(value) {
+    toSL('streamlit:setComponentValue', { value, dataType: 'json' });
+    // A value posted before Streamlit finishes registering this instance is
+    // dropped with "Received component message for unregistered
+    // ComponentInstance". Send it again once registration has had a moment;
+    // Python ignores a repeat of the session it already has.
+    setTimeout(function () {
+      toSL('streamlit:setComponentValue', { value, dataType: 'json' });
+    }, 600);
+  }
+
+  toSL('streamlit:componentReady', { apiVersion: 1 });
+  toSL('streamlit:setFrameHeight', { height: 0 });
+
+  (function () {
+    // The app frame on Streamlit Cloud; the tab itself when running locally.
+    // Reading across these same-origin frames is permitted — it is *navigating*
+    // above this frame that the Cloud sandbox forbids.
+    var win;
+    try { win = window.parent || window; } catch (e) { return; }
+
+    var hash = '';
+    try { hash = win.location.hash.substring(1); } catch (e) { return; }
+    if (!hash) return;
+
+    var p = new URLSearchParams(hash);
+    var at = p.get('access_token');
+    var rt = p.get('refresh_token');
+    if (!at || !rt) return;
+
+    sendValue({ access_token: at, refresh_token: rt });
+
+    // Strip the tokens from the visible URL. replaceState rewrites history
+    // without navigating, so no sandbox flag applies.
+    try {
+      win.history.replaceState(null, '', win.location.pathname + win.location.search);
+    } catch (e) {}
+  }());
+</script>
+</body>
+</html>

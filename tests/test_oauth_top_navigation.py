@@ -53,43 +53,23 @@ class TestOutboundLegIsARealLink:
         assert m and m.group(1) == "oauth_url"
 
 
-class TestReturnLegUsesFrameSelfNavigation:
+class TestReturnLegDoesNotNavigateAtAll:
     """
-    Verified against the deployed app, twice:
-
-      * navigating window.top throws SecurityError (sandbox has no
-        allow-top-navigation), which broke the return leg entirely
-      * the sb_session cookie is written and visible in the browser, but
-        st.context.cookies does not see it on Streamlit Cloud, so the restore
-        never fires — a full reload with the cookie present still showed login
-
-    The same token pair that failed through the cookie logged in immediately
-    when handed over as query params on the app frame's own URL. Self-navigation
-    of a non-top frame is the one move the sandbox permits.
+    The return leg moved to components/oauth_bridge, which hands the tokens over
+    the websocket. app.py no longer rewrites any URL, so there is nothing here
+    for the Cloud sandbox to block and no token to leak into a URL.
+    Behaviour of the bridge itself is covered by tests/test_oauth_bridge.py.
     """
 
-    def test_navigates_the_app_frame_not_the_top_window(self):
-        assert "window.parent || window" in APP_CODE
-        assert "window.top" not in APP_CODE, (
-            "top navigation throws SecurityError inside the Cloud wrapper frame"
-        )
+    def test_app_does_not_inject_a_token_navigation(self):
+        assert "searchParams.set('access_token'" not in APP_CODE
+        assert "searchParams.set('refresh_token'" not in APP_CODE
 
-    def test_hands_tokens_over_as_query_params(self):
-        assert "searchParams.set('access_token'" in APP_CODE
-        assert "searchParams.set('refresh_token'" in APP_CODE
+    def test_app_delegates_to_the_bridge(self):
+        assert "_oauth_tokens = oauth_bridge()" in APP_CODE
 
-    def test_clears_the_hash_on_the_rewritten_url(self):
-        assert "url.hash = ''" in APP_CODE
-
-    def test_injects_into_the_frame_so_it_navigates_itself(self):
-        assert "win.document.createElement('script')" in APP_CODE
-        assert "window.location.replace(" in APP_CODE
-
-    def test_does_not_route_oauth_through_the_cookie(self):
-        """st.context.cookies is not readable on Cloud; don't store a bearer token for nothing."""
-        start = APP_CODE.index("const win = window.parent || window;")
-        block = APP_CODE[start:APP_CODE.index("</script>", start)]
-        assert ".cookie" not in block, "the OAuth return leg must not write a cookie"
+    def test_no_top_window_navigation_anywhere(self):
+        assert "window.top" not in APP_CODE
 
 
 class TestNoInjectedNavigationSurvivesAnywhere:
