@@ -63,6 +63,9 @@ jobs:
           GOOGLE_CSE_ID: ${{ secrets.GOOGLE_CSE_ID }}
           APIFY_API_KEY: ${{ secrets.APIFY_API_KEY }}
           TAVILY_API_KEY: ${{ secrets.TAVILY_API_KEY }}
+        # An explicit shell turns on pipefail; without it the step reports tee's
+        # exit code and a crashed run shows green.
+        shell: bash
         run: |
           python agents/inspiration_agent.py --user-id ${{ matrix.user_id }} \
             2>&1 | tee /tmp/inspiration_${{ matrix.user_id }}.txt
