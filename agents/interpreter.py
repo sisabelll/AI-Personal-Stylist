@@ -1,11 +1,30 @@
 import json
-from typing import Dict, List, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 from services.client import OpenAIClient
 from core.schemas import StyleInterpretation, UserIntent, UserActionType
 from core.config import Config, get_logger
 
 logger = get_logger(__name__)
+
+
+def _aesthetic_key(name: str) -> str:
+    return "".join(ch for ch in name.lower() if ch.isalnum())
+
+
+def resolve_aesthetic_guidelines(style_rules: dict, aesthetic: Optional[str]) -> Tuple[Optional[str], dict]:
+    """
+    Look up an aesthetic in style_rules["aesthetic_style_summary"], ignoring case and
+    separators ("old_money" finds "Old Money"). Returns (canonical name, guide) or (None, {}).
+    """
+    if not aesthetic:
+        return None, {}
+    wanted = _aesthetic_key(aesthetic)
+    for name, guide in ((style_rules or {}).get("aesthetic_style_summary") or {}).items():
+        if _aesthetic_key(name) == wanted:
+            return name, guide or {}
+    return None, {}
+
 
 class StyleConstraintBuilder:
     def __init__(self, user_profile: Union[Dict, List[Dict]], style_rules: dict):
@@ -35,7 +54,7 @@ class StyleConstraintBuilder:
         if body_type:
             constraints['body_guidelines'] = self.style_rules.get('body_style_essence_theory', {}).get(body_type, {})
         if aesthetic:
-            constraints['aesthetic_guidelines'] = self.style_rules.get('aesthetic_style_summary', {}).get(aesthetic, {})
+            constraints['aesthetic_guidelines'] = resolve_aesthetic_guidelines(self.style_rules, aesthetic)[1]
         return constraints
 
 
@@ -83,6 +102,33 @@ class ContextInterpreter:
         Context: "Last outfit had a Tweed Dress."
         User Query: "Actually, let's go with that dress."
         Output: "requested_items": ["Tweed Dress"] <-- CORRECT. Resolved 'that dress'.
+
+        # CRITICAL RULE ON 'AESTHETIC':
+        - If the user NAMES an aesthetic or style lane, put it in requested_aesthetic.
+          Any aesthetic counts, listed or not.
+        - If it is the SAME aesthetic as one on this list under another name, write the
+          list's name; otherwise keep the user's words exactly. Never swap in a merely
+          nearby aesthetic.
+          List: Minimalist, Streetwear, Old Money, Y2K, Coquette, Boho, Corporate Chic,
+                Athleisure, Grunge, Preppy, Avant-Garde, Scandi
+        - aesthetic_bias is the closest fixed-list value. Use the exact one when the named
+          aesthetic is on the list; never let a near-miss replace requested_aesthetic.
+        - Also copy the user's style words into vibe_modifiers.
+        - If the user names no aesthetic, leave requested_aesthetic empty and infer aesthetic_bias.
+
+        Case 4: Named Aesthetic (on the list)
+        User Query: "Give me an explicitly street fashion outfit."
+        Output: "requested_aesthetic": "Streetwear", "aesthetic_bias": "streetwear"
+                <-- street fashion IS streetwear.
+
+        Case 5: Named Aesthetic (not on the list)
+        User Query: "Something dark academia for the library."
+        Output: "requested_aesthetic": "dark academia", "aesthetic_bias": "preppy"
+                <-- CORRECT. Dark academia is near Preppy, not the same, so keep the user's words.
+
+        Case 6: No Aesthetic Named
+        User Query: "An outfit for brunch with friends."
+        Output: "requested_aesthetic": ""
         """
 
         user_prompt = (

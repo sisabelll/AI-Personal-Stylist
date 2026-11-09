@@ -74,9 +74,22 @@ class StyleInterpretation(BaseModel):
         default="polished",
         description="The emotional vibe of the setting."
     )
-    aesthetic_bias: Literal["quiet_luxury", "clean_chic", "romantic", "neutral", "edgy"] = Field(
+    # The second group mirrors data/style_rules.json's aesthetic_style_summary keys
+    # (snake_cased), so a named aesthetic can be looked up instead of collapsed.
+    aesthetic_bias: Literal[
+        "quiet_luxury", "clean_chic", "romantic", "neutral", "edgy",
+        "minimalist", "streetwear", "old_money", "y2k", "coquette", "boho",
+        "corporate_chic", "athleisure", "grunge", "preppy", "avant_garde", "scandi",
+    ] = Field(
         default="clean_chic",
-        description="The visual filter to apply to the recommendations."
+        description="The closest visual filter from this fixed list."
+    )
+    # Free text so an aesthetic outside the list above survives intact. An empty
+    # string, not None: exclude_none would drop None and _smart_update would then
+    # keep the previous session's request alive.
+    requested_aesthetic: str = Field(
+        default="",
+        description="The aesthetic the user EXPLICITLY named, in their own words (e.g. 'dark academia', 'old money'). Empty if they named none."
     )
 
     # C. Item Actions
