@@ -82,11 +82,14 @@ class StyleInterpretation(BaseModel):
         "corporate_chic", "athleisure", "grunge", "preppy", "avant_garde", "scandi",
     ] = Field(
         default="clean_chic",
-        description="The visual filter to apply. If the user names an aesthetic, use that exact value."
+        description="The closest visual filter from this fixed list."
     )
-    aesthetic_explicit: bool = Field(
-        default=False,
-        description="True ONLY if the user explicitly named an aesthetic in the query (e.g. 'streetwear', 'old money'). False if you inferred it."
+    # Free text so an aesthetic outside the list above survives intact. An empty
+    # string, not None: exclude_none would drop None and _smart_update would then
+    # keep the previous session's request alive.
+    requested_aesthetic: str = Field(
+        default="",
+        description="The aesthetic the user EXPLICITLY named, in their own words (e.g. 'dark academia', 'old money'). Empty if they named none."
     )
 
     # C. Item Actions

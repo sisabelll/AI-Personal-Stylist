@@ -104,17 +104,31 @@ class ContextInterpreter:
         Output: "requested_items": ["Tweed Dress"] <-- CORRECT. Resolved 'that dress'.
 
         # CRITICAL RULE ON 'AESTHETIC':
-        - If the user NAMES an aesthetic, set aesthetic_bias to that exact value and
-          aesthetic_explicit=true. Never map it to a merely similar one.
-        - Treat "street fashion", "street style", "streetwear", "street" looks as streetwear.
-        - Always copy the user's own style words into vibe_modifiers too
-          (e.g. "streetwear", "skater", "gorpcore", "90s").
-        - If no aesthetic is named, infer the best fit and set aesthetic_explicit=false.
+        - If the user NAMES an aesthetic or style lane, put it in requested_aesthetic.
+          Any aesthetic counts, listed or not.
+        - If it is the SAME aesthetic as one on this list under another name, write the
+          list's name; otherwise keep the user's words exactly. Never swap in a merely
+          nearby aesthetic.
+          List: Minimalist, Streetwear, Old Money, Y2K, Coquette, Boho, Corporate Chic,
+                Athleisure, Grunge, Preppy, Avant-Garde, Scandi
+        - aesthetic_bias is the closest fixed-list value. Use the exact one when the named
+          aesthetic is on the list; never let a near-miss replace requested_aesthetic.
+        - Also copy the user's style words into vibe_modifiers.
+        - If the user names no aesthetic, leave requested_aesthetic empty and infer aesthetic_bias.
 
-        Case 4: Named Aesthetic
+        Case 4: Named Aesthetic (on the list)
         User Query: "Give me an explicitly street fashion outfit."
-        Output: "aesthetic_bias": "streetwear", "aesthetic_explicit": true,
-                "vibe_modifiers": ["street fashion"]  <-- CORRECT. NOT "edgy".
+        Output: "requested_aesthetic": "Streetwear", "aesthetic_bias": "streetwear"
+                <-- street fashion IS streetwear.
+
+        Case 5: Named Aesthetic (not on the list)
+        User Query: "Something dark academia for the library."
+        Output: "requested_aesthetic": "dark academia", "aesthetic_bias": "preppy"
+                <-- CORRECT. Dark academia is near Preppy, not the same, so keep the user's words.
+
+        Case 6: No Aesthetic Named
+        User Query: "An outfit for brunch with friends."
+        Output: "requested_aesthetic": ""
         """
 
         user_prompt = (

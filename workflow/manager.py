@@ -95,7 +95,7 @@ class ConversationManager:
         if not style_interp:
             style_interp = {
                 k: self.current_context[k]
-                for k in ("formality_level", "social_tone", "aesthetic_bias", "aesthetic_explicit", "vibe_modifiers")
+                for k in ("formality_level", "social_tone", "aesthetic_bias", "vibe_modifiers")
                 if self.current_context.get(k)
             }
 
@@ -109,12 +109,15 @@ class ConversationManager:
             "inspiration_context": self._get_inspiration_context(),
         }
 
-        # An aesthetic the user named outranks everything else in the stylist prompt,
-        # so carry its style_rules guide alongside it. Inferred aesthetics don't qualify.
-        if self.current_context.get("aesthetic_explicit"):
-            name, guide = resolve_aesthetic_guidelines(self.style_rules, self.current_context.get("aesthetic_bias"))
-            if name:
-                signals["requested_aesthetic"] = name
+        # An aesthetic the user named outranks everything else in the stylist prompt.
+        # Attach its style_rules guide only on an exact match: a near-miss guide
+        # (Athleisure for "gorpcore") steers the stylist into the wrong aesthetic,
+        # which is worse than none. Unlisted aesthetics go through by name alone.
+        requested = (self.current_context.get("requested_aesthetic") or "").strip()
+        if requested:
+            _, guide = resolve_aesthetic_guidelines(self.style_rules, requested)
+            signals["requested_aesthetic"] = requested
+            if guide:
                 signals["aesthetic_guidelines"] = guide
         return signals
 

@@ -76,21 +76,38 @@ class TestResolveAestheticGuidelines(unittest.TestCase):
 
 class TestSchemaCanCarryStreetwear(unittest.TestCase):
     def test_streetwear_is_a_valid_aesthetic_bias(self):
-        interp = StyleInterpretation(reasoning_steps=[], aesthetic_bias="streetwear", aesthetic_explicit=True)
+        interp = StyleInterpretation(reasoning_steps=[], aesthetic_bias="streetwear", requested_aesthetic="street fashion")
         self.assertEqual(interp.aesthetic_bias, "streetwear")
+
+    def test_no_request_dumps_as_empty_string_so_it_overwrites_the_last_one(self):
+        dumped = StyleInterpretation(reasoning_steps=[]).model_dump(exclude_none=True)
+        self.assertEqual(dumped["requested_aesthetic"], "")
 
 
 class TestManagerPassesRequestedAesthetic(unittest.TestCase):
-    def test_explicit_aesthetic_reaches_signals_with_its_guide(self):
+    def test_named_aesthetic_reaches_signals_with_its_guide(self):
         m = make_manager()
-        m.current_context = {"aesthetic_bias": "streetwear", "aesthetic_explicit": True}
+        m.current_context = {"aesthetic_bias": "old_money", "requested_aesthetic": "old money"}
         signals = m._base_signals()
-        self.assertEqual(signals["requested_aesthetic"], "Streetwear")
-        self.assertEqual(signals["aesthetic_guidelines"], STREETWEAR)
+        self.assertEqual(signals["requested_aesthetic"], "old money")
+        self.assertEqual(signals["aesthetic_guidelines"], STYLE_RULES["aesthetic_style_summary"]["Old Money"])
+
+    def test_near_miss_aesthetic_gets_no_guide(self):
+        # Athleisure's guide made "gorpcore" come back as a tank and leggings.
+        m = make_manager()
+        m.current_context = {"aesthetic_bias": "streetwear", "requested_aesthetic": "skater"}
+        self.assertNotIn("aesthetic_guidelines", m._base_signals())
+
+    def test_unlisted_aesthetic_passes_through_by_name_without_a_guide(self):
+        m = make_manager()
+        m.current_context = {"aesthetic_bias": "preppy", "requested_aesthetic": "dark academia"}
+        signals = m._base_signals()
+        self.assertEqual(signals["requested_aesthetic"], "dark academia")
+        self.assertNotIn("aesthetic_guidelines", signals)
 
     def test_inferred_aesthetic_is_not_treated_as_a_request(self):
         m = make_manager()
-        m.current_context = {"aesthetic_bias": "streetwear", "aesthetic_explicit": False}
+        m.current_context = {"aesthetic_bias": "streetwear", "requested_aesthetic": ""}
         self.assertNotIn("requested_aesthetic", m._base_signals())
 
     def test_profile_aesthetic_guide_is_resolved_from_snake_case(self):
@@ -113,6 +130,15 @@ class TestStylistPrompt(unittest.TestCase):
         self.assertLess(prompt.index("REQUESTED AESTHETIC"), prompt.index("CONTEXT"))
         self.assertIn("within the Streetwear aesthetic", prompt)
         self.assertNotIn("refined staples", prompt)
+
+    def test_unlisted_request_uses_model_knowledge_not_the_profile_guide(self):
+        prompt = capture_prompt(
+            constraints={"aesthetic_guidelines": STREETWEAR},
+            signals={"requested_aesthetic": "dark academia"},
+        )
+        self.assertIn("REQUESTED AESTHETIC — dark academia", prompt)
+        self.assertIn("expert knowledge of dark academia", prompt)
+        self.assertNotIn("Carhartt WIP", prompt)
 
     def test_profile_aesthetic_is_guidance_only(self):
         prompt = capture_prompt(constraints={"aesthetic_guidelines": STREETWEAR}, signals={})

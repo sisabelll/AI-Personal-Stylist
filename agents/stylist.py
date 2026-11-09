@@ -92,7 +92,11 @@ class StyleStylist:
 
         # A named aesthetic (resolved by the manager) beats the profile's default lane.
         requested_aesthetic = situational_signals.get("requested_aesthetic")
-        aesthetic_guide = situational_signals.get("aesthetic_guidelines") or constraints.get("aesthetic_guidelines") or {}
+        # Never fall back to the profile's guide under a request: it would describe another aesthetic.
+        if requested_aesthetic:
+            aesthetic_guide = situational_signals.get("aesthetic_guidelines") or {}
+        else:
+            aesthetic_guide = constraints.get("aesthetic_guidelines") or {}
 
         # external inspiration
         inspo = situational_signals.get("external_inspiration") or {}
@@ -163,13 +167,13 @@ class StyleStylist:
         """.strip()
 
         aesthetic_block = ""
-        if aesthetic_guide:
+        if aesthetic_guide or requested_aesthetic:
             guide_lines = "\n".join(filter(None, [
                 f"- Vibe: {aesthetic_guide['vibe']}" if aesthetic_guide.get("vibe") else "",
                 f"- Signature pieces/keywords: {', '.join(aesthetic_guide['keywords'])}" if aesthetic_guide.get("keywords") else "",
                 f"- Reference brands: {', '.join(aesthetic_guide['key_brands'])}" if aesthetic_guide.get("key_brands") else "",
                 f"- Fabrics: {aesthetic_guide['fabric_focus']}" if aesthetic_guide.get("fabric_focus") else "",
-            ]))
+            ])) or f"- No house guide: draw on your expert knowledge of {requested_aesthetic}'s signature silhouettes, pieces, footwear, fabrics, and palette."
             if requested_aesthetic:
                 aesthetic_block = f"""
             REQUESTED AESTHETIC — {requested_aesthetic} (HIGHEST PRIORITY)
