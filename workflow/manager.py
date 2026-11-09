@@ -16,7 +16,7 @@ logger = get_logger(__name__)
 from core.schemas import UserActionType, StyleInterpretation, OutfitCritique, EditPlan, EditAction, canon_category
 from core.style_program_schemas import StyleProgram
 
-from agents.interpreter import ContextInterpreter, StyleConstraintBuilder
+from agents.interpreter import ContextInterpreter, StyleConstraintBuilder, resolve_aesthetic_guidelines
 from agents.stylist import StyleStylist
 from agents.style_researcher import StyleResearcherAgent
 from agents.refiner import RefinementAgent
@@ -32,6 +32,7 @@ class ConversationManager:
     def __init__(self, client, user_profile, style_rules, storage=None, dev_mode=False):
         self.client = client
         self.user_profile = user_profile
+        self.style_rules = style_rules or {}
         self.storage = storage
         self.dev_mode = dev_mode
         self.ux_callback = None
@@ -94,11 +95,11 @@ class ConversationManager:
         if not style_interp:
             style_interp = {
                 k: self.current_context[k]
-                for k in ("formality_level", "social_tone", "aesthetic_bias", "vibe_modifiers")
+                for k in ("formality_level", "social_tone", "aesthetic_bias", "aesthetic_explicit", "vibe_modifiers")
                 if self.current_context.get(k)
             }
 
-        return {
+        signals = {
             "external_inspiration": self.current_context.get("external_style_inspiration", {}) or {},
             "event_type": hard.get("event_type") or self.current_context.get("event_type"),
             "weather": hard.get("weather"),
@@ -107,6 +108,15 @@ class ConversationManager:
             "style_interpretation": style_interp,
             "inspiration_context": self._get_inspiration_context(),
         }
+
+        # An aesthetic the user named outranks everything else in the stylist prompt,
+        # so carry its style_rules guide alongside it. Inferred aesthetics don't qualify.
+        if self.current_context.get("aesthetic_explicit"):
+            name, guide = resolve_aesthetic_guidelines(self.style_rules, self.current_context.get("aesthetic_bias"))
+            if name:
+                signals["requested_aesthetic"] = name
+                signals["aesthetic_guidelines"] = guide
+        return signals
 
     def _get_current_outfit_items(self) -> List[Dict[str, Any]]:
         rec = self.conversation_state.get("current_recommendation") or {}

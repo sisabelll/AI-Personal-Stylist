@@ -90,6 +90,10 @@ class StyleStylist:
         aesthetic_bias = interp.get("aesthetic_bias")
         vibe_modifiers = interp.get("vibe_modifiers", [])
 
+        # A named aesthetic (resolved by the manager) beats the profile's default lane.
+        requested_aesthetic = situational_signals.get("requested_aesthetic")
+        aesthetic_guide = situational_signals.get("aesthetic_guidelines") or constraints.get("aesthetic_guidelines") or {}
+
         # external inspiration
         inspo = situational_signals.get("external_inspiration") or {}
         inspo_name = inspo.get("name") or ""
@@ -125,7 +129,7 @@ class StyleStylist:
         # --- formality text ---
         if formality_level:
             formality_text = {
-                "low": "CASUAL/RELAXED — refined staples",
+                "low": f"CASUAL/RELAXED — relaxed {requested_aesthetic}, true to its codes" if requested_aesthetic else "CASUAL/RELAXED — refined staples",
                 "medium": "POLISHED — elevated basics, intentional styling",
                 "high": "ELEVATED/FORMAL — refined materials, statement restraint",
             }.get(formality_level, "POLISHED — elevated basics")
@@ -157,6 +161,32 @@ class StyleStylist:
 
         Do NOT include any extra keys or commentary outside the schema.
         """.strip()
+
+        aesthetic_block = ""
+        if aesthetic_guide:
+            guide_lines = "\n".join(filter(None, [
+                f"- Vibe: {aesthetic_guide['vibe']}" if aesthetic_guide.get("vibe") else "",
+                f"- Signature pieces/keywords: {', '.join(aesthetic_guide['keywords'])}" if aesthetic_guide.get("keywords") else "",
+                f"- Reference brands: {', '.join(aesthetic_guide['key_brands'])}" if aesthetic_guide.get("key_brands") else "",
+                f"- Fabrics: {aesthetic_guide['fabric_focus']}" if aesthetic_guide.get("fabric_focus") else "",
+            ]))
+            if requested_aesthetic:
+                aesthetic_block = f"""
+            REQUESTED AESTHETIC — {requested_aesthetic} (HIGHEST PRIORITY)
+            The user explicitly asked for {requested_aesthetic}. Every item must read unmistakably as {requested_aesthetic};
+            someone glancing at the outfit should name the aesthetic without being told.
+{guide_lines}
+            PRIORITY ORDER: this request > taste intelligence, inspiration, trends, and generic editorial defaults
+            (e.g. "refined", "quiet", "clean proportion" do not apply if they dilute {requested_aesthetic}).
+            The hero piece must come from this aesthetic's vocabulary.
+            Color season and body rules still apply, but as adaptations INSIDE {requested_aesthetic}:
+            adjust color, proportion, and fabric weight — never abandon its signature silhouette or footwear.
+            """.strip()
+            else:
+                aesthetic_block = f"""
+            AESTHETIC LANE (user's profile default — guidance, not a mandate)
+{guide_lines}
+            """.strip()
 
         program_block = ""
         if style_program_obj:
@@ -280,6 +310,8 @@ AVOID:
   - Details: {avoid_el.get("details_and_accessories", "N/A")}
 RULE: Every silhouette and fabric choice must reflect {body_type} principles. Items that violate these rules must be replaced.
             """.strip()
+            if requested_aesthetic:
+                body_rules_block += f"\nApply these within the {requested_aesthetic} aesthetic: tune proportion and fabric, don't trade its silhouette for a generic one."
 
         # Canonical swap_out for prompt (TitleCase)
         swap_requests = sorted({canon_category(x) for x in swap_requests_raw if canon_category(x) != "Unknown"})
@@ -354,7 +386,7 @@ RULE: Every silhouette and fabric choice must reflect {body_type} principles. It
         """.strip()
 
         system_prompt = "\n\n".join(
-            filter(bool, [base_block, program_block, taste_block, inspiration_block, trend_block, context_block, color_rules_block, body_rules_block, edit_block, physics_block])
+            filter(bool, [base_block, aesthetic_block if requested_aesthetic else "", program_block, taste_block, inspiration_block, trend_block, "" if requested_aesthetic else aesthetic_block, context_block, color_rules_block, body_rules_block, edit_block, physics_block])
         ).strip()
 
         editor_plan = situational_signals.get("editor_plan")

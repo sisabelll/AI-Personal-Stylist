@@ -1,11 +1,30 @@
 import json
-from typing import Dict, List, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 from services.client import OpenAIClient
 from core.schemas import StyleInterpretation, UserIntent, UserActionType
 from core.config import Config, get_logger
 
 logger = get_logger(__name__)
+
+
+def _aesthetic_key(name: str) -> str:
+    return "".join(ch for ch in name.lower() if ch.isalnum())
+
+
+def resolve_aesthetic_guidelines(style_rules: dict, aesthetic: Optional[str]) -> Tuple[Optional[str], dict]:
+    """
+    Look up an aesthetic in style_rules["aesthetic_style_summary"], ignoring case and
+    separators ("old_money" finds "Old Money"). Returns (canonical name, guide) or (None, {}).
+    """
+    if not aesthetic:
+        return None, {}
+    wanted = _aesthetic_key(aesthetic)
+    for name, guide in ((style_rules or {}).get("aesthetic_style_summary") or {}).items():
+        if _aesthetic_key(name) == wanted:
+            return name, guide or {}
+    return None, {}
+
 
 class StyleConstraintBuilder:
     def __init__(self, user_profile: Union[Dict, List[Dict]], style_rules: dict):
@@ -35,7 +54,7 @@ class StyleConstraintBuilder:
         if body_type:
             constraints['body_guidelines'] = self.style_rules.get('body_style_essence_theory', {}).get(body_type, {})
         if aesthetic:
-            constraints['aesthetic_guidelines'] = self.style_rules.get('aesthetic_style_summary', {}).get(aesthetic, {})
+            constraints['aesthetic_guidelines'] = resolve_aesthetic_guidelines(self.style_rules, aesthetic)[1]
         return constraints
 
 
@@ -83,6 +102,19 @@ class ContextInterpreter:
         Context: "Last outfit had a Tweed Dress."
         User Query: "Actually, let's go with that dress."
         Output: "requested_items": ["Tweed Dress"] <-- CORRECT. Resolved 'that dress'.
+
+        # CRITICAL RULE ON 'AESTHETIC':
+        - If the user NAMES an aesthetic, set aesthetic_bias to that exact value and
+          aesthetic_explicit=true. Never map it to a merely similar one.
+        - Treat "street fashion", "street style", "streetwear", "street" looks as streetwear.
+        - Always copy the user's own style words into vibe_modifiers too
+          (e.g. "streetwear", "skater", "gorpcore", "90s").
+        - If no aesthetic is named, infer the best fit and set aesthetic_explicit=false.
+
+        Case 4: Named Aesthetic
+        User Query: "Give me an explicitly street fashion outfit."
+        Output: "aesthetic_bias": "streetwear", "aesthetic_explicit": true,
+                "vibe_modifiers": ["street fashion"]  <-- CORRECT. NOT "edgy".
         """
 
         user_prompt = (
