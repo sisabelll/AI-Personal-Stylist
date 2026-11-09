@@ -408,46 +408,46 @@ if "user" not in st.session_state and not DEV_MODE:
         except Exception:
             _clear_session_cookie()
 
-# Supabase hands the tokens back in the URL hash (implicit flow), which the
-# Python side never sees. This used to rewrite the tab's URL into query params,
-# but the app runs inside Streamlit Cloud's sandboxed wrapper iframe with no
-# allow-top-navigation, so that rewrite was silently dropped (or threw
-# SecurityError) and the tokens sat in the address bar while the login page
-# kept showing.
+# Supabase hands the tokens back in the URL hash (implicit flow), which Python
+# never sees. This hands them over as query params instead, by navigating the
+# APP FRAME to its own URL — st.query_params then picks them up below.
 #
-# Nothing here navigates anything. The hash is readable across the same-origin
-# frames, the session cookie is the channel Python already reads on every
-# render (see _COOKIE_NAME above), and only this frame reloads itself — which
-# no sandbox flag restricts.
-st_components.html(f"""
+# Two things here look like bugs and are not. Do not "fix" either one:
+#
+# 1. It navigates window.parent, not window.top. On Streamlit Cloud the app runs
+#    inside a wrapper iframe sandboxed without allow-top-navigation, so touching
+#    the top window throws SecurityError. Navigating the app frame to its own URL
+#    is self-navigation, which no sandbox flag restricts. (A previous change
+#    retargeted this at window.top and broke the whole return leg.)
+#
+# 2. It does not use the sb_session cookie. Verified against the deployed app:
+#    the cookie is written and visible in the browser, yet st.context.cookies
+#    does not see it there, so the restore silently never fires. The same token
+#    pair that failed through the cookie logged in immediately through query
+#    params.
+st_components.html("""
 <script>
-(function() {{
-    const top_ = window.top || window.parent || window;
-    let hash = "";
-    try {{ hash = top_.location.hash.substring(1); }} catch (e) {{ return; }}
+(function() {
+    // window.parent is the app frame on Streamlit Cloud, and the tab itself
+    // when running locally where no wrapper frame exists.
+    const win = window.parent || window;
+    const hash = win.location.hash.substring(1);
     if (!hash) return;
     const p = new URLSearchParams(hash);
-    const at = p.get("access_token");
-    const rt = p.get("refresh_token");
+    const at = p.get('access_token');
+    const rt = p.get('refresh_token');
     if (!at || !rt) return;
 
-    const payload = encodeURIComponent(JSON.stringify({{access_token: at, refresh_token: rt}}));
-    const parentDoc = (window.parent || window).document;
-    const secure = location.protocol === "https:" ? ";Secure" : "";
-    parentDoc.cookie = "{_COOKIE_NAME}=" + payload + ";max-age={_COOKIE_TTL_DAYS * 86400};path=/;SameSite=Lax" + secure;
+    const url = new URL(win.location.href);
+    url.hash = '';
+    url.searchParams.set('access_token', at);
+    url.searchParams.set('refresh_token', rt);
 
-    // Drop the tokens from the visible URL. replaceState rewrites history
-    // without a navigation, so the sandbox does not apply.
-    try {{
-        top_.history.replaceState(null, "", top_.location.pathname + top_.location.search);
-    }} catch (e) {{}}
-
-    // Reload the app frame so Python gets a request carrying the new cookie.
-    // Injected into the parent so it is that frame reloading itself.
-    const s = parentDoc.createElement("script");
-    s.textContent = "window.location.reload();";
-    parentDoc.head.appendChild(s);
-}})();
+    // Injected into the app frame so it is that frame navigating itself.
+    const s = win.document.createElement('script');
+    s.textContent = 'window.location.replace(' + JSON.stringify(url.toString()) + ');';
+    win.document.head.appendChild(s);
+})();
 </script>
 """, height=0)
 
